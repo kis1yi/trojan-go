@@ -31,7 +31,6 @@ require (
 	github.com/jinzhu/now v1.1.2 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
-	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pires/go-proxyproto v0.6.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
@@ -53,8 +52,6 @@ require github.com/cloudquery/sqlite v1.0.1
 require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
-	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
-	github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe // indirect
 	modernc.org/libc v1.7.12 // indirect
 	modernc.org/mathutil v1.2.2 // indirect
 	modernc.org/memory v1.0.4 // indirect
