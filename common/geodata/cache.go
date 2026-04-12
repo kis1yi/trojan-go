@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	v2router "github.com/v2fly/v2ray-core/v4/app/router"
+	v2router "github.com/v2fly/v2ray-core/v5/app/router/routercommon"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/p4gefau1t/trojan-go/common"

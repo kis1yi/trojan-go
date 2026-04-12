@@ -3,7 +3,7 @@ package mux
 import (
 	"context"
 
-	"github.com/xtaci/smux"
+	"github.com/xtaci/smux/v2"
 
 	"github.com/p4gefau1t/trojan-go/common"
 	"github.com/p4gefau1t/trojan-go/log"

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	v2router "github.com/v2fly/v2ray-core/v4/app/router"
+	v2router "github.com/v2fly/v2ray-core/v5/app/router/routercommon"
 
 	"github.com/p4gefau1t/trojan-go/common"
 	"github.com/p4gefau1t/trojan-go/common/geodata"
@@ -42,7 +42,7 @@ func matchDomain(list []*v2router.Domain, target string) bool {
 				log.Tracef("domain %s hit domain(full) rule: %s", target, domain)
 				return true
 			}
-		case v2router.Domain_Domain:
+		case v2router.Domain_RootDomain:
 			domain := d.GetValue()
 			if strings.HasSuffix(target, domain) {
 				idx := strings.Index(target, domain)
@@ -372,7 +372,7 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 	domainInfo := loadCode(cfg, "domain:")
 	for _, info := range domainInfo {
 		client.domains[info.strategy] = append(client.domains[info.strategy], &v2router.Domain{
-			Type:      v2router.Domain_Domain,
+			Type:      v2router.Domain_RootDomain,
 			Value:     strings.ToLower(info.code),
 			Attribute: nil,
 		})
