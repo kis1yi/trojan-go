@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -227,7 +227,7 @@ func newAPIServer(cfg *Config) (*grpc.Server, error) {
 			tlsConfig.ClientCAs = x509.NewCertPool()
 			for _, path := range cfg.API.SSL.ClientCertPath {
 				log.Debug("loading client cert: " + path)
-				certBytes, err := ioutil.ReadFile(path)
+				certBytes, err := os.ReadFile(path)
 				if err != nil {
 					return nil, common.NewError("failed to load cert file").Base(err)
 				}

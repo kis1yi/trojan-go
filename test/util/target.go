@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"sync"
@@ -129,7 +128,7 @@ func runTCPBlackHoleServer() {
 				return
 			}
 			go func(conn net.Conn) {
-				io.Copy(ioutil.Discard, conn)
+				io.Copy(io.Discard, conn)
 				conn.Close()
 			}(conn)
 		}

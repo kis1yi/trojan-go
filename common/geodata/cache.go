@@ -1,7 +1,7 @@
 package geodata
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	v2router "github.com/v2fly/v2ray-core/v4/app/router"
@@ -55,7 +55,7 @@ func (g geoipCache) Unmarshal(filename, code string) (*v2router.GeoIP, error) {
 	case ErrFailedToReadBytes, ErrFailedToReadExpectedLenBytes,
 		ErrInvalidGeodataFile, ErrInvalidGeodataVarintLength:
 		log.Warnf("failed to decode geoip file: %s, fallback to the original ReadFile method", filename)
-		geoipBytes, err = ioutil.ReadFile(asset)
+		geoipBytes, err = os.ReadFile(asset)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ func (g geositeCache) Unmarshal(filename, code string) (*v2router.GeoSite, error
 	case ErrFailedToReadBytes, ErrFailedToReadExpectedLenBytes,
 		ErrInvalidGeodataFile, ErrInvalidGeodataVarintLength:
 		log.Warnf("failed to decode geoip file: %s, fallback to the original ReadFile method", filename)
-		geositeBytes, err = ioutil.ReadFile(asset)
+		geositeBytes, err = os.ReadFile(asset)
 		if err != nil {
 			return nil, err
 		}

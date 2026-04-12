@@ -8,7 +8,9 @@
         "your_password"
     ],
     "ssl": {
-        "sni": "your-domain-name.com"
+        "sni": "your-domain-name.com",
+        "ech": false,
+        "ech_config": ""
     },
     "mux": {
         "enabled": true

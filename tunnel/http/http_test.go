@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -41,7 +41,7 @@ func TestHTTP(t *testing.T) {
 		req, err := http.ReadRequest(bufReader)
 		common.Must(err)
 		fmt.Println(req)
-		ioutil.ReadAll(req.Body)
+		io.ReadAll(req.Body)
 		req.Body.Close()
 		resp, err := http.Get("http://127.0.0.1:" + util.HTTPPort)
 		common.Must(err)

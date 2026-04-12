@@ -54,7 +54,9 @@ weight: 30
     "plain_http_response": "",
     "fallback_addr": "",
     "fallback_port": 0,
-    "fingerprint": ""
+    "fingerprint": "",
+    "ech": false,
+    "ech_config": ""
   },
   "tcp": {
     "no_delay": true,
@@ -176,6 +178,14 @@ weight: 30
 - "ios"，伪造iOS指纹
 
 一旦指纹的值被设置，客户端的```cipher```，```curves```，```alpn```，```session_ticket```等有可能影响指纹的字段将使用该指纹的特定设置覆写。
+
+```ech```是否启用 Encrypted Client Hello（ECH）。启用后，客户端将在 TLS 握手时隐藏真实 SNI。支持两种模式：
+
+- 当```ech```设为```true```且```ech_config```为空时，使用 GREASE ECH 模式，在 Client Hello 中加入伪造的 ECH 扩展，模拟 Chrome 等浏览器的行为，提升 TLS 指纹真实性。
+- 当```ech```设为```true```且```ech_config```不为空时，使用完整 ECH 模式，真实 SNI 将被加密传输。
+
+```ech_config```完整 ECH 模式使用的 ECHConfigList，采用 base64 编码，通常通过可信的 DNS 解析器查询目标域名的 HTTPS 记录获取。如果```ech```为```false```，此字段将被忽略。
+
 ```alpn```为TLS的应用层协议协商指定协议。在TLS Client/Server Hello中传输，协商应用层使用的协议，仅用作指纹伪造，并无实际作用。**如果使用了CDN，错误的alpn字段可能导致与CDN协商得到错误的应用层协议**。
 
 ```prefer_server_cipher```客户端是否偏好选择服务端在协商中提供的密码学套件。

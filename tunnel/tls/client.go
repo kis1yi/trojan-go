@@ -3,9 +3,10 @@ package tls
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	tls "github.com/refraction-networking/utls"
@@ -30,6 +31,8 @@ type Client struct {
 	helloID       tls.ClientHelloID
 	keyLogger     io.WriteCloser
 	underlay      tunnel.Client
+	echEnabled    bool
+	echConfigRaw  []byte
 }
 
 func (c *Client) Close() error {
@@ -49,13 +52,42 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 		return nil, common.NewError("tls failed to dial conn").Base(err)
 	}
 
-	// utls fingerprint
-	tlsConn := tls.UClient(conn, &tls.Config{
+	tlsConfig := &tls.Config{
 		RootCAs:            c.ca,
 		ServerName:         c.sni,
 		InsecureSkipVerify: !c.verify,
 		KeyLogWriter:       c.keyLogger,
-	}, c.helloID)
+	}
+
+	var tlsConn *tls.UConn
+	if c.echEnabled && c.echConfigRaw != nil {
+		// Full ECH mode: pass ECH config list to the TLS config
+		tlsConfig.EncryptedClientHelloConfigList = c.echConfigRaw
+		tlsConn = tls.UClient(conn, tlsConfig, c.helloID)
+	} else if c.echEnabled {
+		// GREASE ECH mode: inject GREASEEncryptedClientHelloExtension if not already present
+		spec, err := tls.UTLSIdToSpec(c.helloID)
+		if err != nil {
+			return nil, common.NewError("failed to get TLS fingerprint spec for GREASE ECH").Base(err)
+		}
+		hasGREASE := false
+		for _, ext := range spec.Extensions {
+			if _, ok := ext.(*tls.GREASEEncryptedClientHelloExtension); ok {
+				hasGREASE = true
+				break
+			}
+		}
+		if !hasGREASE {
+			spec.Extensions = append(spec.Extensions, &tls.GREASEEncryptedClientHelloExtension{})
+		}
+		tlsConn = tls.UClient(conn, tlsConfig, tls.HelloCustom)
+		if err := tlsConn.ApplyPreset(&spec); err != nil {
+			return nil, common.NewError("tls failed to apply GREASE ECH preset").Base(err)
+		}
+	} else {
+		tlsConn = tls.UClient(conn, tlsConfig, c.helloID)
+	}
+
 	if err := tlsConn.Handshake(); err != nil {
 		return nil, common.NewError("tls failed to handshake with remote server").Base(err)
 	}
@@ -101,6 +133,25 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 		log.Warn("tls sni is unspecified")
 	}
 
+	var echEnabled bool
+	var echConfigRaw []byte
+	if cfg.TLS.ECH {
+		if cfg.TLS.ECHConfig == "" {
+			// GREASE ECH mode
+			echEnabled = true
+		} else {
+			// Full ECH mode — decode base64-encoded ECH config
+			decoded, err := base64.StdEncoding.DecodeString(cfg.TLS.ECHConfig)
+			if err != nil || len(decoded) == 0 {
+				return nil, common.NewError("invalid ech_config base64").Base(err)
+			}
+			echEnabled = true
+			echConfigRaw = decoded
+		}
+	} else if cfg.TLS.ECHConfig != "" {
+		log.Warn("ech_config is specified but ech is disabled, ignoring")
+	}
+
 	client := &Client{
 		underlay:      underlay,
 		verify:        cfg.TLS.Verify,
@@ -109,10 +160,12 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 		sessionTicket: cfg.TLS.ReuseSession,
 		fingerprint:   cfg.TLS.Fingerprint,
 		helloID:       helloID,
+		echEnabled:    echEnabled,
+		echConfigRaw:  echConfigRaw,
 	}
 
 	if cfg.TLS.CertPath != "" {
-		caCertByte, err := ioutil.ReadFile(cfg.TLS.CertPath)
+		caCertByte, err := os.ReadFile(cfg.TLS.CertPath)
 		if err != nil {
 			return nil, common.NewError("failed to load cert file").Base(err)
 		}

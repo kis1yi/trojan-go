@@ -23,17 +23,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ["^1.18"]
+        go-version: ["^1.25"]
         platform: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: ^1.18
+          go-version: ^1.25
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Check Go modules
         run: |

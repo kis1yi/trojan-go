@@ -42,6 +42,7 @@ Trojan-Go 兼容原版 Trojan 的绝大多数功能，包括但不限于：
 - 自定义路由模块，可实现国内外分流 / 广告屏蔽等功能
 - Websocket 传输支持，以实现 CDN 流量中转（基于 WebSocket over TLS）和对抗 GFW 中间人攻击
 - TLS 指纹伪造，以对抗 GFW 针对 TLS Client Hello 的特征识别
+- Encrypted Client Hello (ECH) support via uTLS v1.8.2, with GREASE ECH mode (fingerprint authenticity) and full ECH mode (real SNI encryption)
 - 基于 gRPC 的 API 支持，以实现用户管理和速度限制等
 - 可插拔传输层，可将 TLS 替换为其他协议或明文传输，同时有完整的 Shadowsocks 混淆插件支持
 - 支持对用户更友好的 YAML 配置文件格式
@@ -282,7 +283,7 @@ Trojan-Go 支持可插拔的传输层插件，并支持 Shadowsocks [SIP003](htt
 
 ## 构建
 
-> 请确保 Go 版本 >= 1.14
+> 请确保 Go 版本 >= 1.25
 
 使用 `make` 进行编译：
 

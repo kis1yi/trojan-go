@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -114,7 +113,7 @@ func FetchHTTPContent(target string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected HTTP status code: %d", resp.StatusCode)
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read HTTP response")
 	}
