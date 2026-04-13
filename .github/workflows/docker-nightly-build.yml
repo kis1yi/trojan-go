@@ -12,25 +12,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Prepare
         id: prepare
         run: |
           echo "docker_platforms=linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64" >> $GITHUB_OUTPUT
-          echo "docker_image=${{ secrets.DOCKER_USERNAME }}/trojan-go" >> $GITHUB_OUTPUT
+          echo "docker_image=${{ vars.DOCKERHUB_USERNAME }}/trojan-go" >> $GITHUB_OUTPUT
           echo "ref=${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Build and push docker image
@@ -47,4 +47,4 @@ jobs:
     steps:
       - name: Test docker image
         run: |
-          docker run --rm --entrypoint /usr/local/bin/trojan-go ${{ secrets.DOCKER_USERNAME }}/trojan-go -version
+          docker run --rm --entrypoint /usr/local/bin/trojan-go ${{ vars.DOCKERHUB_USERNAME }}/trojan-go -version

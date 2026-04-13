@@ -28,6 +28,10 @@ func TestHTTP(t *testing.T) {
 	s, err := NewServer(ctx, tcpServer)
 	common.Must(err)
 
+	// Allow the HTTP server's acceptLoop goroutine to call
+	// transport.AcceptConn and set nextHTTP before any connection arrives.
+	time.Sleep(time.Millisecond * 100)
+
 	for i := 0; i < 10; i++ {
 		go func() {
 			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
