@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tunneling and Reverse Proxy - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/advance/forward/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Tunneling and Reverse Proxy" />
+<meta property="og:description" content="You can use Trojan-Go to establish a tunnel. A typical application is to use Trojan-Go locally to set up a non-polluted DNS server. Here is an example configuration:
+{ &#34;run_type&#34;: &#34;forward&#34;, &#34;local_addr&#34;: &#34;127.0.0.1&#34;, &#34;local_port&#34;: 53, &#34;remote_addr&#34;: &#34;your_awesome_server&#34;, &#34;remote_port&#34;: 443, &#34;target_addr&#34;: &#34;8.8.8.8&#34;, &#34;target_port&#34;: 53, &#34;password&#34;: [ &#34;your_awesome_password&#34; ] } forward is essentially a client, but you need to fill in the target_addr and target_port fields to specify the reverse proxy target." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/advance/forward/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="advance" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Tunneling and Reverse Proxy"/>
+<meta name="twitter:description" content="You can use Trojan-Go to establish a tunnel. A typical application is to use Trojan-Go locally to set up a non-polluted DNS server. Here is an example configuration:
+{ &#34;run_type&#34;: &#34;forward&#34;, &#34;local_addr&#34;: &#34;127.0.0.1&#34;, &#34;local_port&#34;: 53, &#34;remote_addr&#34;: &#34;your_awesome_server&#34;, &#34;remote_port&#34;: 443, &#34;target_addr&#34;: &#34;8.8.8.8&#34;, &#34;target_port&#34;: 53, &#34;password&#34;: [ &#34;your_awesome_password&#34; ] } forward is essentially a client, but you need to fill in the target_addr and target_port fields to specify the reverse proxy target."/>
+<meta itemprop="name" content="Tunneling and Reverse Proxy">
+<meta itemprop="description" content="You can use Trojan-Go to establish a tunnel. A typical application is to use Trojan-Go locally to set up a non-polluted DNS server. Here is an example configuration:
+{ &#34;run_type&#34;: &#34;forward&#34;, &#34;local_addr&#34;: &#34;127.0.0.1&#34;, &#34;local_port&#34;: 53, &#34;remote_addr&#34;: &#34;your_awesome_server&#34;, &#34;remote_port&#34;: 443, &#34;target_addr&#34;: &#34;8.8.8.8&#34;, &#34;target_port&#34;: 53, &#34;password&#34;: [ &#34;your_awesome_password&#34; ] } forward is essentially a client, but you need to fill in the target_addr and target_port fields to specify the reverse proxy target.">
+
+<meta itemprop="wordCount" content="340"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Tunneling and Reverse Proxy</h1>
+<p>You can use Trojan-Go to establish a tunnel. A typical application is to use Trojan-Go locally to set up a non-polluted DNS server. Here is an example configuration:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;forward&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">53</span>,
+    <span style="color:#f92672">&#34;remote_addr&#34;</span>: <span style="color:#e6db74">&#34;your_awesome_server&#34;</span>,
+    <span style="color:#f92672">&#34;remote_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;target_addr&#34;</span>: <span style="color:#e6db74">&#34;8.8.8.8&#34;</span>,
+    <span style="color:#f92672">&#34;target_port&#34;</span>: <span style="color:#ae81ff">53</span>,
+    <span style="color:#f92672">&#34;password&#34;</span>: [
+        <span style="color:#e6db74">&#34;your_awesome_password&#34;</span>
+    ]
+}
+</code></pre></div><p>forward is essentially a client, but you need to fill in the <code>target_addr</code> and <code>target_port</code> fields to specify the reverse proxy target.</p>
+<p>With this configuration file, TCP and UDP port 53 locally will be listened on. All TCP or UDP data sent to local port 53 will be forwarded through the TLS tunnel to the remote server <code>your_awesome_server</code>. After the remote server receives the response, the data will be returned through the tunnel to local port 53. That is, you can use 127.0.0.1 as a DNS server, and the local query results will match those of the remote server query. You can use this configuration to avoid DNS pollution.</p>
+<p>By the same principle, you can set up a local mirror of Google:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;forward&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;remote_addr&#34;</span>: <span style="color:#e6db74">&#34;your_awesome_server&#34;</span>,
+    <span style="color:#f92672">&#34;remote_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;target_addr&#34;</span>: <span style="color:#e6db74">&#34;www.google.com&#34;</span>,
+    <span style="color:#f92672">&#34;target_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;password&#34;</span>: [
+        <span style="color:#e6db74">&#34;your_awesome_password&#34;</span>
+    ]
+}
+</code></pre></div><p>Visiting <code>https://127.0.0.1</code> will let you access Google&rsquo;s homepage. However, note that since Google&rsquo;s server provides an HTTPS certificate for <code>google.com</code> while the current domain is <code>127.0.0.1</code>, the browser will trigger a certificate error warning.</p>
+<p>Similarly, forward can be used to carry other proxy protocols. For example, using Trojan-Go to carry Shadowsocks traffic: the remote host runs an SS server listening on <code>127.0.0.1:12345</code>, and the remote server has a normal Trojan-Go server running on port 443. You can specify the configuration as follows:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;forward&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">54321</span>,
+    <span style="color:#f92672">&#34;remote_addr&#34;</span>: <span style="color:#e6db74">&#34;your_awesome_server&#34;</span>,
+    <span style="color:#f92672">&#34;remote_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;target_addr&#34;</span>: <span style="color:#e6db74">&#34;www.google.com&#34;</span>,
+    <span style="color:#f92672">&#34;target_port&#34;</span>: <span style="color:#ae81ff">12345</span>,
+    <span style="color:#f92672">&#34;password&#34;</span>: [
+        <span style="color:#e6db74">&#34;your_awesome_password&#34;</span>
+    ]
+}
+</code></pre></div><p>After this, any TCP/UDP connection to local port 54321 is equivalent to connecting to remote port 12345. You can use the Shadowsocks client to connect to local port 54321, and the SS traffic will be transmitted through Trojan&rsquo;s tunnel connection to the SS server on remote port 12345.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/advance/forward.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/advance/router/" title="Domestic Direct Connection and Ad Blocking"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Domestic Direct Connection and Ad Blocking</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/" title="A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy">Next - A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

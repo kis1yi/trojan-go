@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Basic Principles of Trojan - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Basic Principles of Trojan" />
+<meta property="og:description" content="This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.
+Why Shadowsocks (with stream ciphers) is Easily Blocked In its early days, the firewall only intercepted and inspected outbound traffic — what is called passive detection. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/basic/trojan/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="basic" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Basic Principles of Trojan"/>
+<meta name="twitter:description" content="This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.
+Why Shadowsocks (with stream ciphers) is Easily Blocked In its early days, the firewall only intercepted and inspected outbound traffic — what is called passive detection. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days."/>
+<meta itemprop="name" content="Basic Principles of Trojan">
+<meta itemprop="description" content="This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.
+Why Shadowsocks (with stream ciphers) is Easily Blocked In its early days, the firewall only intercepted and inspected outbound traffic — what is called passive detection. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days.">
+
+<meta itemprop="wordCount" content="571"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Basic Principles of Trojan</h1>
+<p>This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.</p>
+<h2 id="why-shadowsocks-with-stream-ciphers-is-easily-blocked">Why Shadowsocks (with stream ciphers) is Easily Blocked</h2>
+<p>In its early days, the firewall only intercepted and inspected outbound traffic — what is called <strong>passive detection</strong>. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days.</p>
+<p>The current GFW has started using <strong>active probing</strong>. Specifically, when the GFW discovers a suspicious unrecognized connection (large traffic, random byte streams, high-numbered ports, etc.), it will <strong>actively connect</strong> to the server&rsquo;s port and replay previously captured traffic (or replay it after some careful modifications). The Shadowsocks server detects the abnormal connection and closes it. This abnormal traffic and connection-closing behavior is regarded as a characteristic of a suspicious Shadowsocks server, and the server is added to the GFW&rsquo;s suspect list. This list may not immediately take effect, but during some special sensitive periods, servers on the suspect list may be temporarily or permanently blocked. Whether this list is blocked may be determined by human factors.</p>
+<p>If you want to learn more, please refer to <a href="https://gfw.report/blog/gfw_shadowsocks/">this article</a>.</p>
+<h2 id="how-trojan-bypasses-the-gfw">How Trojan Bypasses the GFW</h2>
+<p>Unlike Shadowsocks, Trojan does not use a custom encryption protocol to hide itself. Instead, it uses TLS (TLS/SSL) — a protocol with obvious characteristics — making traffic look the same as a normal HTTPS website. TLS is a mature encryption system; HTTPS uses TLS to carry HTTP traffic. Using a <strong>correctly configured</strong> encrypted TLS tunnel guarantees:</p>
+<ul>
+<li>Confidentiality (GFW cannot learn the content of transmission)</li>
+<li>Integrity (once GFW attempts to tamper with the encrypted ciphertext, both communicating parties will detect it)</li>
+<li>Non-repudiation (GFW cannot forge identities to impersonate the server or client)</li>
+<li>Forward secrecy (even if the key is leaked, GFW cannot decrypt previously encrypted traffic)</li>
+</ul>
+<p>For passive detection, Trojan protocol traffic has exactly the same characteristics and behavior as HTTPS traffic. HTTPS traffic accounts for more than half of current internet traffic, and once the TLS handshake succeeds all traffic is encrypted ciphertext, making it practically infeasible to distinguish Trojan protocol traffic from it.</p>
+<p>For active detection, when the firewall actively connects to the Trojan server for detection, Trojan can correctly identify non-Trojan protocol traffic. Unlike Shadowsocks and other proxies, at this point Trojan does not close the connection but instead proxies this connection to a normal web server. From GFW&rsquo;s perspective, the server&rsquo;s behavior is exactly the same as a normal HTTPS website, making it impossible to determine whether it is a Trojan proxy node. This is also why Trojan recommends using a legitimate domain name and an HTTPS certificate signed by an authoritative CA: it makes your server completely undetectable as a Trojan server by GFW using active probing.</p>
+<p>Therefore, at the present time, to identify and block Trojan connections, one can only use indiscriminate blocking (blocking an IP segment, a class of certificates, a class of domain names, or even blocking all outbound HTTPS connections) or launch large-scale man-in-the-middle attacks (hijacking all TLS traffic and certificates to inspect content). For man-in-the-middle attacks, dual TLS via WebSocket can be used as a countermeasure, as explained in detail in the advanced configuration section.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/basic/trojan.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/basic/" title="Basic Configuration"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Basic Configuration</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/basic/config/" title="Correctly Configuring Trojan-Go">Next - Correctly Configuring Trojan-Go <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

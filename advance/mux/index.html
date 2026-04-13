@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Enable Multiplexing to Improve Network Concurrency Performance - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/advance/mux/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Enable Multiplexing to Improve Network Concurrency Performance" />
+<meta property="og:description" content="Note: Trojan does not support this feature Trojan-Go supports using multiplexing to improve network concurrency performance.
+The Trojan protocol is based on TLS. Before a TLS secure connection is established, both parties need to perform key negotiation and exchange steps to ensure the security of subsequent communication. This process is the TLS handshake.
+Currently the GFW inspects and interferes with TLS handshakes. Combined with congestion on egress networks, a regular TLS handshake often takes close to a second or more to complete." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/advance/mux/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="advance" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Enable Multiplexing to Improve Network Concurrency Performance"/>
+<meta name="twitter:description" content="Note: Trojan does not support this feature Trojan-Go supports using multiplexing to improve network concurrency performance.
+The Trojan protocol is based on TLS. Before a TLS secure connection is established, both parties need to perform key negotiation and exchange steps to ensure the security of subsequent communication. This process is the TLS handshake.
+Currently the GFW inspects and interferes with TLS handshakes. Combined with congestion on egress networks, a regular TLS handshake often takes close to a second or more to complete."/>
+<meta itemprop="name" content="Enable Multiplexing to Improve Network Concurrency Performance">
+<meta itemprop="description" content="Note: Trojan does not support this feature Trojan-Go supports using multiplexing to improve network concurrency performance.
+The Trojan protocol is based on TLS. Before a TLS secure connection is established, both parties need to perform key negotiation and exchange steps to ensure the security of subsequent communication. This process is the TLS handshake.
+Currently the GFW inspects and interferes with TLS handshakes. Combined with congestion on egress networks, a regular TLS handshake often takes close to a second or more to complete.">
+
+<meta itemprop="wordCount" content="392"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Enable Multiplexing to Improve Network Concurrency Performance</h1>
+<h3 id="note-trojan-does-not-support-this-feature">Note: Trojan does not support this feature</h3>
+<p>Trojan-Go supports using multiplexing to improve network concurrency performance.</p>
+<p>The Trojan protocol is based on TLS. Before a TLS secure connection is established, both parties need to perform key negotiation and exchange steps to ensure the security of subsequent communication. This process is the TLS handshake.</p>
+<p>Currently the GFW inspects and interferes with TLS handshakes. Combined with congestion on egress networks, a regular TLS handshake often takes close to a second or more to complete. This can increase latency when browsing websites and watching videos.</p>
+<p>Trojan-Go uses multiplexing to solve this problem. Each established TLS connection carries multiple TCP connections. When a new proxy request arrives, instead of performing a new TLS handshake to establish a new TLS connection with the server, existing TLS connections are reused as much as possible. This reduces the latency caused by repeated TLS and TCP handshakes.</p>
+<p>Enabling multiplexing will not increase your link speed (it may even decrease it), and may increase the computational load on both server and client. It can be roughly understood as: multiplexing trades network throughput and CPU power for lower latency. In high-concurrency scenarios, such as browsing web pages with many images or sending large numbers of UDP requests, it can improve the experience.</p>
+<p>To activate the <code>mux</code> module, simply set the <code>enabled</code> field in the <code>mux</code> option to <code>true</code>. Here is a client example:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="color:#960050;background-color:#1e0010">...</span>
+<span style="color:#e6db74">&#34;mux&#34;</span> <span style="color:#960050;background-color:#1e0010">:</span>{
+    <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">true</span>
+}
+</code></pre></div><p>Only the client needs to be configured; the server adapts automatically without needing to configure the <code>mux</code> option.</p>
+<p>The complete mux configuration is as follows:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="color:#e6db74">&#34;mux&#34;</span><span style="color:#960050;background-color:#1e0010">:</span> {
+    <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
+    <span style="color:#f92672">&#34;concurrency&#34;</span>: <span style="color:#ae81ff">8</span>,
+    <span style="color:#f92672">&#34;idle_timeout&#34;</span>: <span style="color:#ae81ff">60</span>
+}
+</code></pre></div><p><code>concurrency</code> is the maximum number of TCP connections each TLS connection can carry. The larger this value, the lower the handshake latency when multiple connections are concurrent, but the server and client will be under more computational load, which may decrease your network throughput. If your line&rsquo;s TLS handshake is extremely slow, you can set this to <code>-1</code>, meaning Trojan-Go will only perform one TLS handshake and use only one single TLS connection for all transmission.</p>
+<p><code>idle_timeout</code> specifies how long each TLS connection should remain idle before being closed. Setting a timeout <strong>may</strong> help reduce unnecessary keepalive traffic that could trigger GFW probing. You can set this to <code>-1</code>, which means TLS connections will be closed immediately when idle.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/advance/mux.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/advance/" title="Advanced Configuration"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Advanced Configuration</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/advance/websocket/" title="Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks">Next - Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

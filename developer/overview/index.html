@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Overview - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/developer/overview/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Overview" />
+<meta property="og:description" content="The core components of Trojan-Go are:
+  tunnel — concrete implementations of each protocol
+  proxy — proxy core
+  config — configuration registration and parsing module
+  redirector — active detection spoofing module
+  statistics — user authentication and statistics module
+  Source code can be found in the corresponding folders.
+tunnel.Tunnel Trojan-Go abstracts all protocols (including routing functionality, etc.) as tunnels (the tunnel." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/developer/overview/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="developer" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Overview"/>
+<meta name="twitter:description" content="The core components of Trojan-Go are:
+  tunnel — concrete implementations of each protocol
+  proxy — proxy core
+  config — configuration registration and parsing module
+  redirector — active detection spoofing module
+  statistics — user authentication and statistics module
+  Source code can be found in the corresponding folders.
+tunnel.Tunnel Trojan-Go abstracts all protocols (including routing functionality, etc.) as tunnels (the tunnel."/>
+<meta itemprop="name" content="Overview">
+<meta itemprop="description" content="The core components of Trojan-Go are:
+  tunnel — concrete implementations of each protocol
+  proxy — proxy core
+  config — configuration registration and parsing module
+  redirector — active detection spoofing module
+  statistics — user authentication and statistics module
+  Source code can be found in the corresponding folders.
+tunnel.Tunnel Trojan-Go abstracts all protocols (including routing functionality, etc.) as tunnels (the tunnel.">
+
+<meta itemprop="wordCount" content="796"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Overview</h1>
+<p>The core components of Trojan-Go are:</p>
+<ul>
+<li>
+<p>tunnel — concrete implementations of each protocol</p>
+</li>
+<li>
+<p>proxy — proxy core</p>
+</li>
+<li>
+<p>config — configuration registration and parsing module</p>
+</li>
+<li>
+<p>redirector — active detection spoofing module</p>
+</li>
+<li>
+<p>statistics — user authentication and statistics module</p>
+</li>
+</ul>
+<p>Source code can be found in the corresponding folders.</p>
+<h2 id="tunneltunnel">tunnel.Tunnel</h2>
+<p>Trojan-Go abstracts all protocols (including routing functionality, etc.) as tunnels (the <code>tunnel.Tunnel</code> interface). Each tunnel can open a server side (<code>tunnel.Server</code> interface) and a client side (<code>tunnel.Client</code>). Each server can strip and accept streams (<code>tunnel.Conn</code>) and packets (<code>tunnel.PacketConn</code>) from its underlying tunnel. A client can create streams and packets towards the underlying tunnel.</p>
+<p>Each tunnel does not care what tunnel lies below it, but each tunnel clearly knows information about the other tunnels above it.</p>
+<p>All tunnels require the lower layer to provide stream or packet transport support, or both. All tunnels must provide stream transport support to the upper layer, but do not necessarily need to provide packet transport.</p>
+<p>A tunnel may have only a server side, only a client side, or both. A tunnel with both sides can be used as the transport tunnel between Trojan-Go client and server.</p>
+<p>Note: please distinguish between Trojan-Go&rsquo;s server/client and the tunnel&rsquo;s server/client. Below is an illustrative diagram.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">
+  Inbound                           GFW                                 Outbound
+--------&gt;Tunnel A Server-&gt;Tunnel B Client ----------------&gt; Tunnel B Server-&gt;Tunnel C Client-----------&gt;
+           (Trojan-Go Client)                                (Trojan-Go Server)
+
+</code></pre></div><p>The bottommost tunnel is the transport layer — i.e., a tunnel that does not obtain or create streams and packets from other tunnels, playing the role of Tunnel A or C in the diagram above.</p>
+<ul>
+<li>
+<p>transport — pluggable transport layer</p>
+</li>
+<li>
+<p>socks — socks5 proxy, tunnel server only</p>
+</li>
+<li>
+<p>tproxy — transparent proxy, tunnel server only</p>
+</li>
+<li>
+<p>dokodemo — reverse proxy, tunnel server only</p>
+</li>
+<li>
+<p>freedom — free outbound, tunnel client only</p>
+</li>
+</ul>
+<p>These tunnels create streams and packets directly from TCP/UDP sockets, and do not accept any underlying tunnels.</p>
+<p>Other tunnels can in principle be combined and stacked in any manner and number, as long as the lower layer satisfies the upper layer&rsquo;s requirements for stream and packet transport. These tunnels play the role of Tunnel B in the diagram above:</p>
+<ul>
+<li>
+<p>trojan</p>
+</li>
+<li>
+<p>websocket</p>
+</li>
+<li>
+<p>mux</p>
+</li>
+<li>
+<p>simplesocks</p>
+</li>
+<li>
+<p>tls</p>
+</li>
+<li>
+<p>router — routing functionality, tunnel client only</p>
+</li>
+</ul>
+<p>None of them care about their underlying tunnel implementation, but can distribute incoming streams and packets to upper-layer tunnels.</p>
+<p>For example, in this diagram, a typical Trojan-Go client and server have tunnels stacked from bottom to top as:</p>
+<ul>
+<li>
+<p>Tunnel A: transport-&gt;socks</p>
+</li>
+<li>
+<p>Tunnel B: transport-&gt;tls-&gt;trojan</p>
+</li>
+<li>
+<p>Tunnel C: freedom</p>
+</li>
+</ul>
+<p>In practice the actual tunnel stacking will be somewhat more complex than this. Typically, the inbound tunnel forms a multi-child tree rather than a single chain. For a detailed explanation, see below.</p>
+<h2 id="proxyproxy--the-proxy-core">proxy.Proxy — The Proxy Core</h2>
+<p>The role of the proxy core is to listen on the protocol stack formed by combining and stacking the tunnels described above, extract streams and packets (along with their metadata) from all inbound protocol stacks (the leaf nodes of multiple tunnel servers, described below), and forward them to the outbound protocol stack (a single tunnel client).</p>
+<p>Note that there can be multiple inbound protocol stacks here. For example, the client can simultaneously extract streams and packets from both Socks5 and HTTP protocol stacks; the server can simultaneously extract streams and packets from both WebSocket-based Trojan protocol and TLS-based Trojan protocol. However, there can only be one outbound protocol stack, such as TLS-based Trojan protocol for outbound traffic.</p>
+<p>To describe how inbound protocol stacks (tunnel servers) are combined and stacked, a multi-child tree is used to describe all protocol stacks. You can see the tree-building process in the components in the proxy folder.</p>
+<p>The outbound protocol stack is simpler and can be described with a simple list.</p>
+<p>So in practice, for a typical client/server with both WebSocket and Mux enabled, the tunnel stacking model from the diagram above is:</p>
+<p>Client</p>
+<ul>
+<li>
+<p>Inbound (tree)</p>
+<ul>
+<li>transport (root)
+<ul>
+<li>adapter — can identify HTTP and Socks traffic and distribute to upper-layer protocols
+<ul>
+<li>http (leaf node)</li>
+<li>socks (leaf node)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>Outbound (chain)</p>
+<ul>
+<li>transport (root)</li>
+<li>tls</li>
+<li>websocket</li>
+<li>trojan</li>
+<li>mux</li>
+<li>simplesocks</li>
+</ul>
+</li>
+</ul>
+<p>Server</p>
+<ul>
+<li>
+<p>Inbound (tree)</p>
+<ul>
+<li>transport (root)
+<ul>
+<li>tls — can identify HTTP and non-HTTP traffic and distribute
+<ul>
+<li>websocket
+<ul>
+<li>trojan (leaf node)
+<ul>
+<li>mux
+<ul>
+<li>simplesocks (leaf node)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>trojan — can identify mux and regular trojan traffic and distribute (leaf node)
+<ul>
+<li>mux
+<ul>
+<li>simplesocks (leaf node)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>Outbound (chain)</p>
+<ul>
+<li>freedom</li>
+</ul>
+</li>
+</ul>
+<p>Note that the proxy core only extracts streams and packets from the leaf nodes of the tunnel tree, and forwards them to the single outbound. The purpose of having multiple leaf nodes is to make Trojan-Go simultaneously compatible with WebSocket and Trojan protocol inbound, inbound connections with/without Mux enabled, and HTTP/Socks5 auto-detection. Each tree node with multiple children has the ability to precisely identify and distribute streams and packets to different child nodes. This aligns with our assumption that each protocol knows about the upper-layer protocols it carries.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/developer/overview.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/developer/" title="Implementation Details and Developer Guide"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Implementation Details and Developer Guide</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/developer/build/" title="Building and Customizing Trojan-Go">Next - Building and Customizing Trojan-Go <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

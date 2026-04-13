@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy" />
+<meta property="og:description" content="Introduction Trojan is a tool that encrypts data transmission by encapsulating it in TLS. Taking advantage of its TLS characteristics, we can use an SNI proxy to achieve traffic splitting and relay on the same host port for different paths.
+Required Tools and Other Preparations  Relay machine: nginx 1.11.5 or above Endpoint machine: trojan server (no version requirement)  Configuration Method For ease of explanation, two relay hosts and two endpoint hosts are used here." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="advance" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy"/>
+<meta name="twitter:description" content="Introduction Trojan is a tool that encrypts data transmission by encapsulating it in TLS. Taking advantage of its TLS characteristics, we can use an SNI proxy to achieve traffic splitting and relay on the same host port for different paths.
+Required Tools and Other Preparations  Relay machine: nginx 1.11.5 or above Endpoint machine: trojan server (no version requirement)  Configuration Method For ease of explanation, two relay hosts and two endpoint hosts are used here."/>
+<meta itemprop="name" content="A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy">
+<meta itemprop="description" content="Introduction Trojan is a tool that encrypts data transmission by encapsulating it in TLS. Taking advantage of its TLS characteristics, we can use an SNI proxy to achieve traffic splitting and relay on the same host port for different paths.
+Required Tools and Other Preparations  Relay machine: nginx 1.11.5 or above Endpoint machine: trojan server (no version requirement)  Configuration Method For ease of explanation, two relay hosts and two endpoint hosts are used here.">
+
+<meta itemprop="wordCount" content="633"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</h1>
+<h2 id="introduction">Introduction</h2>
+<p>Trojan is a tool that encrypts data transmission by encapsulating it in TLS. Taking advantage of its TLS characteristics, we can use an SNI proxy to achieve traffic splitting and relay on the same host port for different paths.</p>
+<h2 id="required-tools-and-other-preparations">Required Tools and Other Preparations</h2>
+<ul>
+<li>Relay machine: nginx 1.11.5 or above</li>
+<li>Endpoint machine: trojan server (no version requirement)</li>
+</ul>
+<h2 id="configuration-method">Configuration Method</h2>
+<p>For ease of explanation, two relay hosts and two endpoint hosts are used here.
+The domain names bound to the four hosts are (a/b/c/d).example.com respectively, as shown in the diagram.
+There are 4 interconnection paths in total: a-c, a-d, b-c, and b-d.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">                        +-----------------+           +--------------------+
+                        |                 +----------&gt;+                    |
+                        |   VPS RELAY A   |           |   VPS ENDPOINT C   |
+                  +----&gt;+                 |   +------&gt;+                    |
+                  |     |  a.example.com  |   |       |   c.example.com    |
+                  |     |                 +------+    |                    |
+  +----------+    |     +-----------------+   |  |    +--------------------+
+  |          |    |                           |  |
+  |  client  +----+                           |  |
+  |          |    |                           |  |
+  +----------+    |     +-----------------+   |  |    +--------------------+
+                  |     |                 |   |  |    |                    |
+                  |     |   VPS RELAY B   |   |  +---&gt;+   VPS ENDPOINT D   |
+                  +----&gt;+                 +---+       |                    |
+                        |  b.example.com  |           |   d.example.com    |
+                        |                 +----------&gt;+                    |
+                        +-----------------+           +--------------------+
+</code></pre></div><h3 id="configure-path-domain-names-and-corresponding-certificates">Configure Path Domain Names and Corresponding Certificates</h3>
+<p>First, we need to assign a domain name to each path, and resolve them to the respective entry hosts.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">a-c.example.com CNAME a.example.com  
+a-d.example.com CNAME a.example.com  
+b-c.example.com CNAME b.example.com  
+b-d.example.com CNAME b.example.com
+</code></pre></div><p>Then we need to deploy certificates for all target path domain names on the endpoint hosts.
+Since the DNS records and host IPs do not match, HTTP validation will not pass. It is recommended to use DNS validation to issue certificates.
+The specific DNS validation plugin depends on your domain DNS hosting provider. Here we use AWS Route 53.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">certbot certonly --dns-route53 -d a-c.example.com -d b-c.example.com // On host C
+certbot certonly --dns-route53 -d a-d.example.com -d b-d.example.com // On host D
+</code></pre></div><h3 id="configure-the-sni-proxy">Configure the SNI Proxy</h3>
+<p>Here we use nginx&rsquo;s <code>ssl_preread</code> module to implement the SNI proxy.
+Please install nginx and then modify your <code>nginx.conf</code> file as follows.
+Note that this is not an HTTP service so do not put it inside a virtual host configuration.</p>
+<p>Here is the corresponding configuration for host A. Host B follows the same pattern.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-nginx" data-lang="nginx"><span style="color:#66d9ef">stream</span> {
+  <span style="color:#f92672">map</span> $ssl_preread_server_name $name {
+    <span style="color:#f92672">a-c.example.com</span>   <span style="color:#e6db74">c.example.com</span>;  <span style="color:#75715e"># Forward a-c path traffic to host C
+</span><span style="color:#75715e"></span>    <span style="color:#f92672">a-d.example.com</span>   <span style="color:#e6db74">d.example.com</span>;  <span style="color:#75715e"># Forward a-d path traffic to host D
+</span><span style="color:#75715e"></span>
+    <span style="color:#75715e"># If other services occupying port 443 are also needed on this host (e.g., web service and Trojan service),
+</span><span style="color:#75715e"></span>    <span style="color:#75715e"># make those services listen on another local port (4000 is used here).
+</span><span style="color:#75715e"></span>    <span style="color:#75715e"># All TLS requests not matching the above SNIs will be forwarded to this port. Can be removed if not needed.
+</span><span style="color:#75715e"></span>    <span style="color:#f92672">default</span>           localhost:<span style="color:#ae81ff">4000</span>;
+  }
+
+  <span style="color:#f92672">server</span> {
+    <span style="color:#f92672">listen</span>      <span style="color:#ae81ff">443</span>; <span style="color:#75715e"># Listen on port 443
+</span><span style="color:#75715e"></span>    <span style="color:#f92672">proxy_pass</span>  $name;
+    <span style="color:#f92672">ssl_preread</span> <span style="color:#66d9ef">on</span>;
+  }
+}
+</code></pre></div><h3 id="configure-the-endpoint-trojan-service">Configure the Endpoint Trojan Service</h3>
+<p>In the previous configuration we used one certificate to issue all target path domain names, so here we can use a single Trojan server instance to handle all target path requests.
+The Trojan configuration is the same as usual. Here is an example with irrelevant configuration omitted.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;server&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;ssl&#34;</span>: {
+        <span style="color:#f92672">&#34;cert&#34;</span>: <span style="color:#e6db74">&#34;/path/to/certificate.crt&#34;</span>,
+        <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;/path/to/private.key&#34;</span>,
+    }
+    <span style="color:#960050;background-color:#1e0010">...</span>
+}
+</code></pre></div><p>Tip: If you need separate independent Trojan server instances for different paths on the endpoint host (e.g., for separate billing services), you can configure another SNI proxy on the endpoint host and forward traffic to different local Trojan server listening ports respectively. Since the configuration is essentially the same as the process described above, it will not be repeated here.</p>
+<h2 id="summary">Summary</h2>
+<p>Through the configuration method described above, we can achieve multi-entry multi-exit multi-stage Trojan traffic forwarding on a single port.
+For multi-stage relaying, simply configure the SNI proxy on the intermediate nodes following the same approach.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/advance/nginx-relay.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/advance/forward/" title="Tunneling and Reverse Proxy"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Tunneling and Reverse Proxy</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/advance/plugin/" title="Using Shadowsocks Plugins / Pluggable Transport Layer">Next - Using Shadowsocks Plugins / Pluggable Transport Layer <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

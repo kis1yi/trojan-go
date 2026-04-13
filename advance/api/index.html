@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dynamic User Management via API - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/advance/api/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Dynamic User Management via API" />
+<meta property="og:description" content="Note: Trojan does not support this feature Trojan-Go provides a set of APIs via gRPC. The API supports the following features:
+  Add, delete, modify, and query user information
+  Traffic statistics
+  Speed statistics
+  IP connection count statistics
+  Trojan-Go itself has integrated API control functionality, meaning you can use one Trojan-Go instance to manage another Trojan-Go server.
+You need to add API settings to the server configuration you want to control, for example:" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/advance/api/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="advance" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Dynamic User Management via API"/>
+<meta name="twitter:description" content="Note: Trojan does not support this feature Trojan-Go provides a set of APIs via gRPC. The API supports the following features:
+  Add, delete, modify, and query user information
+  Traffic statistics
+  Speed statistics
+  IP connection count statistics
+  Trojan-Go itself has integrated API control functionality, meaning you can use one Trojan-Go instance to manage another Trojan-Go server.
+You need to add API settings to the server configuration you want to control, for example:"/>
+<meta itemprop="name" content="Dynamic User Management via API">
+<meta itemprop="description" content="Note: Trojan does not support this feature Trojan-Go provides a set of APIs via gRPC. The API supports the following features:
+  Add, delete, modify, and query user information
+  Traffic statistics
+  Speed statistics
+  IP connection count statistics
+  Trojan-Go itself has integrated API control functionality, meaning you can use one Trojan-Go instance to manage another Trojan-Go server.
+You need to add API settings to the server configuration you want to control, for example:">
+
+<meta itemprop="wordCount" content="392"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Dynamic User Management via API</h1>
+<h3 id="note-trojan-does-not-support-this-feature">Note: Trojan does not support this feature</h3>
+<p>Trojan-Go provides a set of APIs via gRPC. The API supports the following features:</p>
+<ul>
+<li>
+<p>Add, delete, modify, and query user information</p>
+</li>
+<li>
+<p>Traffic statistics</p>
+</li>
+<li>
+<p>Speed statistics</p>
+</li>
+<li>
+<p>IP connection count statistics</p>
+</li>
+</ul>
+<p>Trojan-Go itself has integrated API control functionality, meaning you can use one Trojan-Go instance to manage another Trojan-Go server.</p>
+<p>You need to add API settings to the server configuration you want to control, for example:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#960050;background-color:#1e0010">...</span>
+    <span style="color:#f92672">&#34;api&#34;</span>: {
+        <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">true</span>,
+        <span style="color:#f92672">&#34;api_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+        <span style="color:#f92672">&#34;api_port&#34;</span>: <span style="color:#ae81ff">10000</span>,
+    }
+}
+</code></pre></div><p>Then start the Trojan-Go server:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -config ./server.json
+</code></pre></div><p>Then you can use another Trojan-Go to connect to the server for management. The basic command format is:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr SERVER_API_ADDRESS -api COMMAND
+</code></pre></div><p>Where <code>SERVER_API_ADDRESS</code> is the API address and port, such as 127.0.0.1:10000.</p>
+<p><code>COMMAND</code> is the API command. Valid commands are:</p>
+<ul>
+<li>
+<p>list — list all users</p>
+</li>
+<li>
+<p>get — get information for a specific user</p>
+</li>
+<li>
+<p>set — set user information (add / delete / modify)</p>
+</li>
+</ul>
+<p>Below are some examples:</p>
+<ol>
+<li>
+<p>List all user information</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api list
+</code></pre></div><p>All user information will be exported in JSON format, including the number of online IPs, real-time speed, total upload and download traffic, etc. Below is an example of a returned result:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">[{<span style="color:#f92672">&#34;user&#34;</span>:{<span style="color:#f92672">&#34;hash&#34;</span>:<span style="color:#e6db74">&#34;d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01&#34;</span>},<span style="color:#f92672">&#34;status&#34;</span>:{<span style="color:#f92672">&#34;traffic_total&#34;</span>:{<span style="color:#f92672">&#34;upload_traffic&#34;</span>:<span style="color:#ae81ff">36393</span>,<span style="color:#f92672">&#34;download_traffic&#34;</span>:<span style="color:#ae81ff">186478</span>},<span style="color:#f92672">&#34;speed_current&#34;</span>:{<span style="color:#f92672">&#34;upload_speed&#34;</span>:<span style="color:#ae81ff">25210</span>,<span style="color:#f92672">&#34;download_speed&#34;</span>:<span style="color:#ae81ff">72384</span>},<span style="color:#f92672">&#34;speed_limit&#34;</span>:{<span style="color:#f92672">&#34;upload_speed&#34;</span>:<span style="color:#ae81ff">5242880</span>,<span style="color:#f92672">&#34;download_speed&#34;</span>:<span style="color:#ae81ff">5242880</span>},<span style="color:#f92672">&#34;ip_limit&#34;</span>:<span style="color:#ae81ff">50</span>}}]
+</code></pre></div><p>Traffic units are all bytes.</p>
+</li>
+<li>
+<p>Get a user&rsquo;s information</p>
+<p>You can use <code>-target-password</code> to specify a password, or <code>-target-hash</code> to specify the SHA224 hash of the target user&rsquo;s password. The format is the same as the list command:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api get -target-password password
+</code></pre></div><p>Or:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api get -target-hash d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01
+</code></pre></div><p>The above two commands are equivalent. The following examples uniformly use the plaintext password method; using a hash to specify a user follows the same logic.</p>
+<p>The user&rsquo;s information will be exported in JSON format, similar to the list command. Below is an example of a returned result:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{<span style="color:#f92672">&#34;user&#34;</span>:{<span style="color:#f92672">&#34;hash&#34;</span>:<span style="color:#e6db74">&#34;d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01&#34;</span>},<span style="color:#f92672">&#34;status&#34;</span>:{<span style="color:#f92672">&#34;traffic_total&#34;</span>:{<span style="color:#f92672">&#34;upload_traffic&#34;</span>:<span style="color:#ae81ff">36393</span>,<span style="color:#f92672">&#34;download_traffic&#34;</span>:<span style="color:#ae81ff">186478</span>},<span style="color:#f92672">&#34;speed_current&#34;</span>:{<span style="color:#f92672">&#34;upload_speed&#34;</span>:<span style="color:#ae81ff">25210</span>,<span style="color:#f92672">&#34;download_speed&#34;</span>:<span style="color:#ae81ff">72384</span>},<span style="color:#f92672">&#34;speed_limit&#34;</span>:{<span style="color:#f92672">&#34;upload_speed&#34;</span>:<span style="color:#ae81ff">5242880</span>,<span style="color:#f92672">&#34;download_speed&#34;</span>:<span style="color:#ae81ff">5242880</span>},<span style="color:#f92672">&#34;ip_limit&#34;</span>:<span style="color:#ae81ff">50</span>}}
+</code></pre></div></li>
+<li>
+<p>Add a user</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api set -add-profile -target-password password
+</code></pre></div></li>
+<li>
+<p>Delete a user</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api set -delete-profile -target-password password
+</code></pre></div></li>
+<li>
+<p>Modify a user&rsquo;s information</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api set -modify-profile -target-password password <span style="color:#ae81ff">\
+</span><span style="color:#ae81ff"></span>    -ip-limit <span style="color:#ae81ff">3</span> <span style="color:#ae81ff">\
+</span><span style="color:#ae81ff"></span>    -upload-speed-limit <span style="color:#ae81ff">5242880</span> <span style="color:#ae81ff">\
+</span><span style="color:#ae81ff"></span>    -download-speed-limit <span style="color:#ae81ff">5242880</span>
+</code></pre></div><p>This command limits the upload and download speed of the user with password &ldquo;password&rdquo; to 5 MiB/s, and limits the number of simultaneously connected IPs to 3. Note that 5242880 here is in bytes. If 0 or a negative number is entered, it means no limit.</p>
+</li>
+</ol>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/advance/api.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/advance/aead/" title="Secondary Encryption with Shadowsocks AEAD"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Secondary Encryption with Shadowsocks AEAD</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/advance/nat/" title="Transparent Proxy">Next - Transparent Proxy <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

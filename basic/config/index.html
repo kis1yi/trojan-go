@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Correctly Configuring Trojan-Go - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://p4gefau1t.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://p4gefau1t.github.io/trojan-go/basic/config/">
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://p4gefau1t.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://p4gefau1t.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Correctly Configuring Trojan-Go" />
+<meta property="og:description" content="The following describes how to correctly configure Trojan-Go to fully hide your proxy node&rsquo;s characteristics.
+Before starting, you need:
+  A server that is not blocked by the GFW
+  A domain name (free domain services such as .tk can be used)
+  Trojan-Go, which can be downloaded from the release page
+  A certificate and key, which can be freely obtained from authorities such as Let&rsquo;s Encrypt" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://p4gefau1t.github.io/trojan-go/basic/config/" /><meta property="og:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="basic" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Correctly Configuring Trojan-Go"/>
+<meta name="twitter:description" content="The following describes how to correctly configure Trojan-Go to fully hide your proxy node&rsquo;s characteristics.
+Before starting, you need:
+  A server that is not blocked by the GFW
+  A domain name (free domain services such as .tk can be used)
+  Trojan-Go, which can be downloaded from the release page
+  A certificate and key, which can be freely obtained from authorities such as Let&rsquo;s Encrypt"/>
+<meta itemprop="name" content="Correctly Configuring Trojan-Go">
+<meta itemprop="description" content="The following describes how to correctly configure Trojan-Go to fully hide your proxy node&rsquo;s characteristics.
+Before starting, you need:
+  A server that is not blocked by the GFW
+  A domain name (free domain services such as .tk can be used)
+  Trojan-Go, which can be downloaded from the release page
+  A certificate and key, which can be freely obtained from authorities such as Let&rsquo;s Encrypt">
+
+<meta itemprop="wordCount" content="818"><meta itemprop="image" content="https://p4gefau1t.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/p4gefau1t/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/p4gefau1t">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Correctly Configuring Trojan-Go</h1>
+<p>The following describes how to correctly configure Trojan-Go to fully hide your proxy node&rsquo;s characteristics.</p>
+<p>Before starting, you need:</p>
+<ul>
+<li>
+<p>A server that is not blocked by the GFW</p>
+</li>
+<li>
+<p>A domain name (free domain services such as .tk can be used)</p>
+</li>
+<li>
+<p>Trojan-Go, which can be downloaded from the release page</p>
+</li>
+<li>
+<p>A certificate and key, which can be freely obtained from authorities such as Let&rsquo;s Encrypt</p>
+</li>
+</ul>
+<h3 id="server-configuration">Server Configuration</h3>
+<p>Our goal is to make your server behave identically to a normal HTTPS website.</p>
+<p>First you need an HTTP server. You can use nginx, Apache, Caddy, etc. to configure a local HTTP server, or use someone else&rsquo;s HTTP server. The purpose of the HTTP server is to display a completely normal web page to the GFW when it performs active probing.</p>
+<p><strong>You need to specify the address of this HTTP server in <code>remote_addr</code> and <code>remote_port</code>. <code>remote_addr</code> can be an IP or domain name. Trojan-Go will test whether this HTTP server is working properly; if it is not, Trojan-Go will refuse to start.</strong></p>
+<p>Below is a reasonably secure server configuration <code>server.json</code> that requires you to configure an HTTP service on local port 80 (required; you can also use another website&rsquo;s HTTP server, such as <code>&quot;remote_addr&quot;: &quot;example.com&quot;</code>), and optionally an HTTPS service on port 1234 or a static HTTP page showing &ldquo;400 Bad Request&rdquo; (optional; the <code>fallback_port</code> field can be removed to skip this step):</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;server&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;remote_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+    <span style="color:#f92672">&#34;remote_port&#34;</span>: <span style="color:#ae81ff">80</span>,
+    <span style="color:#f92672">&#34;password&#34;</span>: [
+        <span style="color:#e6db74">&#34;your_awesome_password&#34;</span>
+    ],
+    <span style="color:#f92672">&#34;ssl&#34;</span>: {
+        <span style="color:#f92672">&#34;cert&#34;</span>: <span style="color:#e6db74">&#34;server.crt&#34;</span>,
+        <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;server.key&#34;</span>,
+        <span style="color:#f92672">&#34;fallback_port&#34;</span>: <span style="color:#ae81ff">1234</span>
+    }
+}
+</code></pre></div><p>This configuration file makes Trojan-Go listen on port 443 on all IP addresses (0.0.0.0) of the server, using <code>server.crt</code> and <code>server.key</code> as the certificate and key for TLS handshake. You should use the most complex password possible, while ensuring that the <code>password</code> is consistent between client and server. Note that <strong>Trojan-Go will check whether your HTTP server <code>http://remote_addr:remote_port</code> is working properly. If your HTTP server is not working, Trojan-Go will refuse to start.</strong></p>
+<p>When a client attempts to connect to the Trojan-Go listening port, the following happens:</p>
+<ul>
+<li>
+<p>If the TLS handshake succeeds and the TLS content is detected as non-Trojan protocol (possibly an HTTP request or active probing from the GFW), Trojan-Go proxies the TLS connection to the HTTP service on local 127.0.0.1:80. From a remote perspective, the Trojan-Go service appears as an HTTPS website.</p>
+</li>
+<li>
+<p>If the TLS handshake succeeds, the Trojan protocol header is confirmed, and the password is correct, the server will parse the request from the client and proxy it; otherwise it is handled the same as the previous step.</p>
+</li>
+<li>
+<p>If the TLS handshake fails, it means the other party is not using TLS protocol to connect. Trojan-Go will proxy this TCP connection to the HTTPS service (or HTTP service) running on local 127.0.0.1:1234, returning an HTTP page showing 400 Bad Request. <code>fallback_port</code> is an optional field; if not filled in, Trojan-Go will directly terminate the connection. Although optional, it is still strongly recommended to fill it in.</p>
+</li>
+</ul>
+<p>You can verify by using a browser to access your domain <code>https://your-domain-name.com</code>. If it works properly, your browser will display a normal HTTPS-protected web page with content consistent with the page on port 80 of the server. You can also use <code>http://your-domain-name.com:443</code> to verify that <code>fallback_port</code> is working properly.</p>
+<p>In fact, you can even use Trojan-Go as your HTTPS server to provide HTTPS service for your website. Visitors can normally browse your website through Trojan-Go without affecting proxy traffic. However, note that you should not set up services with high real-time requirements on <code>remote_port</code> and <code>fallback_port</code>, as Trojan-Go will intentionally add a small delay when detecting non-Trojan protocol traffic to resist GFW&rsquo;s time-based detection.</p>
+<p>After configuration, you can start the server with:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -config ./server.json
+</code></pre></div><h3 id="client-configuration">Client Configuration</h3>
+<p>The corresponding client configuration <code>client.json</code>:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+    <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;client&#34;</span>,
+    <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+    <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">1080</span>,
+    <span style="color:#f92672">&#34;remote_addr&#34;</span>: <span style="color:#e6db74">&#34;your_awesome_server&#34;</span>,
+    <span style="color:#f92672">&#34;remote_port&#34;</span>: <span style="color:#ae81ff">443</span>,
+    <span style="color:#f92672">&#34;password&#34;</span>: [
+        <span style="color:#e6db74">&#34;your_awesome_password&#34;</span>
+    ],
+    <span style="color:#f92672">&#34;ssl&#34;</span>: {
+        <span style="color:#f92672">&#34;sni&#34;</span>: <span style="color:#e6db74">&#34;your-domain-name.com&#34;</span>
+    }
+}
+</code></pre></div><p>This client configuration makes Trojan-Go open a Socks5/HTTP proxy (automatically detected) listening on local port 1080. The remote server is <code>your_awesome_server:443</code>, where <code>your_awesome_server</code> can be an IP or domain name.</p>
+<p>If you fill in a domain name in <code>remote_addr</code>, <code>sni</code> can be omitted. If you fill in an IP address in <code>remote_addr</code>, the <code>sni</code> field should contain the domain name corresponding to the certificate you applied for, or the Common Name of the self-signed certificate, and they must be consistent. Note that the <code>sni</code> field is currently transmitted in <strong>plaintext</strong> in the TLS protocol (to allow the server to provide the appropriate certificate). The GFW has been proven to have SNI detection and blocking capabilities, so do not fill in domain names that are already blocked (such as <code>google.com</code>), as this may very likely cause your server to be blocked as well.</p>
+<p>After configuration, you can start the client with:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -config ./client.json
+</code></pre></div><p>More information about configuration files can be found in the corresponding sections in the left navigation bar.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/p4gefau1t/trojan-go/docs/edit/master/content/basic/config.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://p4gefau1t.github.io/trojan-go/basic/trojan/" title="Basic Principles of Trojan"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Basic Principles of Trojan</a>
+<a class="nav nav-next" href="https://p4gefau1t.github.io/trojan-go/basic/full-config/" title="Complete Configuration File">Next - Complete Configuration File <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go">Home</a></li>
+
+<li class="parent"><a href="https://p4gefau1t.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class="active"><a href="https://p4gefau1t.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://p4gefau1t.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

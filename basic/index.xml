@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Basic Configuration on Trojan-Go Docs</title>
+    <link>https://p4gefau1t.github.io/trojan-go/basic/</link>
+    <description>Recent content in Basic Configuration on Trojan-Go Docs</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language><atom:link href="https://p4gefau1t.github.io/trojan-go/basic/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Basic Principles of Trojan</title>
+      <link>https://p4gefau1t.github.io/trojan-go/basic/trojan/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://p4gefau1t.github.io/trojan-go/basic/trojan/</guid>
+      <description>This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.
+Why Shadowsocks (with stream ciphers) is Easily Blocked In its early days, the firewall only intercepted and inspected outbound traffic — what is called passive detection. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days.</description>
+    </item>
+    
+    <item>
+      <title>Correctly Configuring Trojan-Go</title>
+      <link>https://p4gefau1t.github.io/trojan-go/basic/config/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://p4gefau1t.github.io/trojan-go/basic/config/</guid>
+      <description>The following describes how to correctly configure Trojan-Go to fully hide your proxy node&amp;rsquo;s characteristics.
+Before starting, you need:
+  A server that is not blocked by the GFW
+  A domain name (free domain services such as .tk can be used)
+  Trojan-Go, which can be downloaded from the release page
+  A certificate and key, which can be freely obtained from authorities such as Let&amp;rsquo;s Encrypt</description>
+    </item>
+    
+    <item>
+      <title>Complete Configuration File</title>
+      <link>https://p4gefau1t.github.io/trojan-go/basic/full-config/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://p4gefau1t.github.io/trojan-go/basic/full-config/</guid>
+      <description>Below is a complete configuration file. The required fields are:
+  run_type
+  local_addr
+  local_port
+  remote_addr
+  remote_port
+  For the server server, key and cert are required.
+For the client client, the reverse proxy tunnel forward, and the transparent proxy nat, password is required.
+All other unspecified options will be filled with the values given below.
+Trojan-Go supports the more human-friendly YAML syntax.</description>
+    </item>
+    
+  </channel>
+</rss>
