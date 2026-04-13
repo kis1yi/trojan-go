@@ -2,16 +2,16 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Implementation Details and Developer Guide on Trojan-Go Docs</title>
-    <link>https://p4gefau1t.github.io/trojan-go/developer/</link>
+    <link>https://kis1yi.github.io/trojan-go/developer/</link>
     <description>Recent content in Implementation Details and Developer Guide on Trojan-Go Docs</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>zh-CN</language><atom:link href="https://p4gefau1t.github.io/trojan-go/developer/index.xml" rel="self" type="application/rss+xml" />
+    <language>zh-CN</language><atom:link href="https://kis1yi.github.io/trojan-go/developer/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Overview</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/overview/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/overview/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/overview/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/overview/</guid>
       <description>The core components of Trojan-Go are:
   tunnel — concrete implementations of each protocol
   proxy — proxy core
@@ -24,10 +24,10 @@ tunnel.Tunnel Trojan-Go abstracts all protocols (including routing functionality
     
     <item>
       <title>Building and Customizing Trojan-Go</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/build/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/build/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/build/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/build/</guid>
       <description>Building requires a Go version higher than 1.25. Please verify your compiler version before building. It is recommended to use snap to install and update Go.
 Compilation is straightforward. You can use the Makefile preset steps to compile:
 make make install #install systemd service, etc. (optional) Or use Go directly to compile:
@@ -36,10 +36,10 @@ go build -tags &amp;#34;full&amp;#34; #build the full version You can specify th
     
     <item>
       <title>Trojan Protocol</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/trojan/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/trojan/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/trojan/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/trojan/</guid>
       <description>Trojan-Go follows the original Trojan protocol. For the specific format, please refer to the Trojan documentation; it will not be repeated here.
 By default, the Trojan protocol is carried by TLS. The protocol stack is as follows:
    Protocol     Real Traffic   Trojan   TLS   TCP    </description>
@@ -47,20 +47,20 @@ By default, the Trojan protocol is carried by TLS. The protocol stack is as foll
     
     <item>
       <title>Multiplexing</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/mux/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/mux/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/mux/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/mux/</guid>
       <description>Trojan-Go uses smux to implement multiplexing. It also implements the simplesocks protocol for proxy transport.
 When multiplexing is enabled, the client first initiates a TLS connection using the normal Trojan protocol format, but fills the Command field with 0x7f (protocol.Mux) to identify the connection as a multiplexed one (similar to HTTP&amp;rsquo;s upgrade). The connection is then handed over to the smux client for management. After the server receives the request header, the smux server parses all traffic on that connection.</description>
     </item>
     
     <item>
       <title>WebSocket</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/websocket/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/websocket/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/websocket/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/websocket/</guid>
       <description>When using CDN relay, HTTPS is transparent to the CDN, which can inspect the WebSocket transmission content. Since the Trojan protocol itself transmits in plaintext, a Shadowsocks AEAD encryption layer can be added to obfuscate traffic characteristics and ensure security.
 If you are using a CDN provided by a carrier in mainland China, you must enable AEAD encryption
 After enabling AEAD encryption, the traffic carried via WebSocket will be encrypted with Shadowsocks AEAD.</description>
@@ -68,10 +68,10 @@ After enabling AEAD encryption, the traffic carried via WebSocket will be encryp
     
     <item>
       <title>SimpleSocks Protocol</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/simplesocks/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/simplesocks/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/simplesocks/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/simplesocks/</guid>
       <description>SimpleSocks is a simple proxy protocol without an authentication mechanism; it is essentially the Trojan protocol with sha224 removed. The purpose of this protocol is to reduce overhead during multiplexing.
 This protocol is only used for multiplexed connections when multiplexing is enabled. That is, SimpleSocks is always carried by SMux.
 SimpleSocks is even simpler than Socks5. Below is the header structure.
@@ -80,19 +80,19 @@ SimpleSocks is even simpler than Socks5. Below is the header structure.
     
     <item>
       <title>API Development</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/api/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/api/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/api/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/api/</guid>
       <description>Trojan-Go implements an API based on gRPC, using protobuf for data exchange. The client can retrieve traffic and speed information; the server can retrieve per-user traffic, speed, and online status, and can dynamically add/remove users and limit speeds. The API module can be activated by adding the api option in the configuration file. Below is an example; the meaning of each field is described in the &amp;ldquo;Full Configuration File&amp;rdquo; section.</description>
     </item>
     
     <item>
       <title>Pluggable Transport Layer Plugin Development</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/plugin/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/plugin/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/plugin/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/plugin/</guid>
       <description>Trojan-Go encourages the development of transport layer plugins to enrich protocol diversity and increase the strategic depth of confrontation with the GFW.
 The role of a transport layer plugin is to replace the TLS in the transport tunnel for transmission encryption and obfuscation.
 Plugins communicate with Trojan-Go via TCP sockets, with no coupling to Trojan-Go itself. You can develop using any language and design pattern you prefer. We recommend following the SIP003 standard.</description>
@@ -100,10 +100,10 @@ Plugins communicate with Trojan-Go via TCP sockets, with no coupling to Trojan-G
     
     <item>
       <title>URL Scheme (Draft)</title>
-      <link>https://p4gefau1t.github.io/trojan-go/developer/url/</link>
+      <link>https://kis1yi.github.io/trojan-go/developer/url/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://p4gefau1t.github.io/trojan-go/developer/url/</guid>
+      <guid>https://kis1yi.github.io/trojan-go/developer/url/</guid>
       <description>Changelog encryption format changed to ss;method:password Overview Thanks to @DuckSoft, @StudentMain, and @phlinhng for their discussion and contributions to the Trojan-Go URL scheme. The URL scheme is currently a draft and requires more practice and discussion. The Trojan-Go client can accept URLs to locate server resources. The principles are: Follow URL format specifications Ensure human readability and machine friendliness The purpose of a URL is to locate Trojan-Go node resources</description>
     </item>
     
