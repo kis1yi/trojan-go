@@ -28,7 +28,7 @@ tunnel.Tunnel Trojan-Go abstracts all protocols (including routing functionality
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
       <guid>https://kis1yi.github.io/trojan-go/developer/build/</guid>
-      <description>Building requires a Go version higher than 1.25. Please verify your compiler version before building. It is recommended to use snap to install and update Go.
+      <description>Building requires a Go version higher than 1.26. Please verify your compiler version before building. It is recommended to use snap to install and update Go.
 Compilation is straightforward. You can use the Makefile preset steps to compile:
 make make install #install systemd service, etc. (optional) Or use Go directly to compile:
 go build -tags &amp;#34;full&amp;#34; #build the full version You can specify the target OS and architecture for cross-compilation by setting the GOOS and GOARCH environment variables, for example</description>
