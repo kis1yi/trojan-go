@@ -69,7 +69,7 @@ release: geosite.dat geoip.dat geoip-only-cn-private.dat darwin-amd64.zip darwin
 	linux-arm.zip linux-armv5.zip linux-armv6.zip linux-armv7.zip linux-armv8.zip \
 	linux-mips-softfloat.zip linux-mips-hardfloat.zip linux-mipsle-softfloat.zip linux-mipsle-hardfloat.zip \
 	linux-mips64.zip linux-mips64le.zip freebsd-386.zip freebsd-amd64.zip \
-	windows-386.zip windows-amd64.zip windows-arm.zip windows-armv6.zip windows-armv7.zip windows-arm64.zip
+	windows-386.zip windows-amd64.zip windows-arm64.zip
 
 darwin-amd64:
 	mkdir -p $(BUILD_DIR)/$@
@@ -146,18 +146,6 @@ windows-386:
 windows-amd64:
 	mkdir -p $(BUILD_DIR)/$@
 	GOARCH=amd64 GOOS=windows $(GOBUILD)/$@
-
-windows-arm:
-	mkdir -p $(BUILD_DIR)/$@
-	GOARCH=arm GOOS=windows $(GOBUILD)/$@
-
-windows-armv6:
-	mkdir -p $(BUILD_DIR)/$@
-	GOARCH=arm GOOS=windows GOARM=6 $(GOBUILD)/$@
-
-windows-armv7:
-	mkdir -p $(BUILD_DIR)/$@
-	GOARCH=arm GOOS=windows GOARM=7 $(GOBUILD)/$@
 
 windows-arm64:
 	mkdir -p $(BUILD_DIR)/$@
