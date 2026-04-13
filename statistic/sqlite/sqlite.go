@@ -5,7 +5,7 @@ package sqlite
 import (
 	"errors"
 
-	"github.com/cloudquery/sqlite"
+	"github.com/glebarez/sqlite"
 	"github.com/p4gefau1t/trojan-go/statistic"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

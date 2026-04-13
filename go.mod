@@ -20,12 +20,15 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/glebarez/sqlite v1.11.0
+
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/gopherjs/gopherjs v1.20.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -41,8 +44,6 @@ require (
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 )
-
-require github.com/cloudquery/sqlite v1.0.1
 
 require (
 	github.com/mattn/go-isatty v0.0.21 // indirect
