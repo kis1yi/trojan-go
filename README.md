@@ -93,7 +93,7 @@ Trojan-Go server is compatible with all original Trojan clients such as Igniter 
         p4gefau1t/trojan-go
     ```
 
-   或者
+   or
 
     ```shell
     docker run \
