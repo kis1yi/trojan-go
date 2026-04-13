@@ -4,7 +4,7 @@ draft: false
 weight: 10
 ---
 
-Building requires a Go version higher than 1.25. Please verify your compiler version before building. It is recommended to use snap to install and update Go.
+Building requires a Go version higher than 1.26. Please verify your compiler version before building. It is recommended to use snap to install and update Go.
 
 Compilation is straightforward. You can use the Makefile preset steps to compile:
 

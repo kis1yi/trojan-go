@@ -42,7 +42,7 @@ Additionally, Trojan-Go also implements more efficient and easy-to-use features:
 - Custom routing module for domestic/overseas traffic splitting / ad blocking, etc.
 - WebSocket transport support for CDN traffic relay (WebSocket over TLS) and resistance against GFW man-in-the-middle attacks
 - TLS fingerprint spoofing to resist GFW's TLS Client Hello fingerprint detection
-- Encrypted Client Hello (ECH) support via uTLS v1.8.2, with GREASE ECH mode (fingerprint authenticity) and full ECH mode (real SNI encryption)
+- Encrypted Client Hello (ECH) support via uTLS, with GREASE ECH mode (fingerprint authenticity) and full ECH mode (real SNI encryption)
 - gRPC-based API support for user management and speed limiting
 - Pluggable transport layer to replace TLS with other protocols or plaintext, with full Shadowsocks obfuscation plugin support
 - Support for the more user-friendly YAML configuration file format
@@ -283,7 +283,7 @@ For a complete description of options, refer to the [Trojan-Go Documentation](ht
 
 ## Build
 
-> Please ensure Go version >= 1.25
+> Please ensure Go version >= 1.26
 
 Build using `make`:
 

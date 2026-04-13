@@ -32,4 +32,5 @@ formatters:
         - default
         - prefix(github.com/kis1yi/trojan-go)
     goimports:
-      local-prefixes: github.com/kis1yi/trojan-go
+      local-prefixes:
+        - github.com/kis1yi/trojan-go

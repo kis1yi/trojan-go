@@ -47,4 +47,4 @@ jobs:
     steps:
       - name: Test docker image
         run: |
-          docker run --rm --entrypoint /usr/local/bin/trojan-go ${{ vars.DOCKERHUB_USERNAME }}/trojan-go -version
+          docker run --rm --entrypoint /usr/local/bin/trojan-go ${{ vars.DOCKERHUB_USERNAME }}/trojan-go:nightly -version

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -153,14 +154,37 @@ func runUDPBlackHoleServer() {
 
 var wg = sync.WaitGroup{}
 
+// pickDualPort returns a port available for both TCP and UDP on the given host.
+func pickDualPort(host string) int {
+	for retry := 0; retry < 16; retry++ {
+		l, err := net.Listen("tcp", host+":0")
+		if err != nil {
+			continue
+		}
+		_, port, _ := net.SplitHostPort(l.Addr().String())
+		l.Close()
+		uc, err := net.ListenPacket("udp", host+":"+port)
+		if err != nil {
+			continue
+		}
+		uc.Close()
+		p, _ := strconv.Atoi(port)
+		return p
+	}
+	panic("failed to pick a dual TCP/UDP port")
+}
+
 func init() {
 	wg.Add(5)
 	runHelloHTTPServer()
 
-	EchoPort = common.PickPort("tcp", "127.0.0.1")
+	// Pick ports available for both TCP and UDP to avoid Windows
+	// ephemeral port exclusion issues (Hyper-V reserves port ranges
+	// that may differ between protocols).
+	EchoPort = pickDualPort("127.0.0.1")
 	EchoAddr = fmt.Sprintf("127.0.0.1:%d", EchoPort)
 
-	BlackHolePort = common.PickPort("tcp", "127.0.0.1")
+	BlackHolePort = pickDualPort("127.0.0.1")
 	BlackHoleAddr = fmt.Sprintf("127.0.0.1:%d", BlackHolePort)
 
 	runTCPEchoServer()
