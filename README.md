@@ -6,7 +6,7 @@
 - [x] Server supports user data persistence using SQLite (Linux only)
 - [x] Support specifying forwarding buffer size and count limits for better memory usage control
 - [x] Fixed the issue where server-side upload rate limiting is ineffective
-- [ ] Fix the issue where blocking during connection forwarding may cause goroutine leaks
+- [x] Fix the issue where blocking during connection forwarding may cause goroutine leaks
 
 # Trojan-Go [![Go Report Card](https://goreportcard.com/badge/github.com/p4gefau1t/trojan-go)](https://goreportcard.com/report/github.com/p4gefau1t/trojan-go) [![Downloads](https://img.shields.io/github/downloads/p4gefau1t/trojan-go/total?label=downloads&logo=github&style=flat-square)](https://img.shields.io/github/downloads/p4gefau1t/trojan-go/total?label=downloads&logo=github&style=flat-square)
 

@@ -87,8 +87,12 @@ func (p *Proxy) relayConnLoop() {
 						}
 					case <-p.ctx.Done():
 						log.Debug("shutting down conn relay")
-						return
 					}
+					// Close both connections to unblock the remaining copy goroutine
+					inbound.Close()
+					outbound.Close()
+					// Wait for the second goroutine to finish
+					<-errChan
 					log.Debug("conn relay ends")
 				}(inbound)
 			}
@@ -155,6 +159,11 @@ func (p *Proxy) relayPacketLoop() {
 					case <-p.ctx.Done():
 						log.Debug("shutting down packet relay")
 					}
+					// Close both connections to unblock the remaining copy goroutine
+					inbound.Close()
+					outbound.Close()
+					// Wait for the second goroutine to finish
+					<-errChan
 					log.Debug("packet relay ends")
 				}(inbound)
 			}
