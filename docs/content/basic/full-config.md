@@ -1,10 +1,10 @@
 ---
-title: "完整的配置文件"
+title: "Complete Configuration File"
 draft: false
 weight: 30
 ---
 
-下面是一个完整的配置文件，其中的必填选项有
+Below is a complete configuration file. The required fields are:
 
 - ```run_type```
 
@@ -16,13 +16,13 @@ weight: 30
 
 - ```remote_port```
 
-对于服务器```server```，```key```和```cert```为必填。
+For the server ```server```, ```key``` and ```cert``` are required.
 
-对于客户端```client```，反向代理隧道```forward```，以及透明代理```nat```，```password```必填
+For the client ```client```, the reverse proxy tunnel ```forward```, and the transparent proxy ```nat```, ```password``` is required.
 
-其余未填的选项，用下面给出的值进行填充。
+All other unspecified options will be filled with the values given below.
 
-*Trojan-Go支持对人类更友好的YAML语法，配置文件的基本结构与JSON相同，效果等价。但是为了遵守YAML的命名习惯，你需要把下划线("_")转换为横杠("-")，如```remote_addr```在YAML文件中为```remote-addr```*
+*Trojan-Go supports the more human-friendly YAML syntax. The basic structure of the configuration file is the same as JSON and yields equivalent results. However, to follow YAML naming conventions, you need to convert underscores ("_") to hyphens ("-"), e.g. `remote_addr` becomes `remote-addr` in YAML files.*
 
 ```json
 {
@@ -127,106 +127,106 @@ weight: 30
 }
 ```
 
-## 说明
+## Description
 
-### 一般选项
+### General Options
 
-对于client/nat/forward，```remote_xxxx```应当填写你的trojan服务器地址和端口号，```local_xxxx```对应本地开放的socks5/http代理地址（自动适配）
+For client/nat/forward, `remote_xxxx` should contain your Trojan server address and port, while `local_xxxx` corresponds to the locally open Socks5/HTTP proxy address (auto-detected).
 
-对于server，```local_xxxx```对应trojan服务器监听地址（强烈建议使用443端口），```remote_xxxx```填写识别到非trojan流量时代理到的HTTP服务地址，通常填写本地80端口。
+For server, `local_xxxx` corresponds to the Trojan server listening address (port 443 is strongly recommended), and `remote_xxxx` contains the HTTP service address to proxy to when non-Trojan traffic is detected, usually local port 80.
 
-```log_level```指定日志等级。等级越高，输出的信息越少。合法的值有
+`log_level` specifies the log level. The higher the level, the less information is output. Valid values are:
 
-- 0 输出Debug以上日志（所有日志）
+- 0 Output Debug and above logs (all logs)
 
-- 1 输出Info及以上日志
+- 1 Output Info and above logs
 
-- 2 输出Warning及以上日志
+- 2 Output Warning and above logs
 
-- 3 输出Error及以上日志
+- 3 Output Error and above logs
 
-- 4 输出Fatal及以上日志
+- 4 Output Fatal and above logs
 
-- 5 完全不输出日志
+- 5 No log output at all
 
-```log_file```指定日志输出文件路径。如果未指定则使用标准输出。
+`log_file` specifies the log output file path. If not specified, standard output is used.
 
-```password```可以填入多个密码。除了使用配置文件配置密码之外，trojan-go还支持使用mysql配置密码，参见下文。客户端的密码，只有与服务端配置文件中或者在数据库中的密码记录一致，才能通过服务端的校验，正常使用代理服务。
+`password` can contain multiple passwords. In addition to configuring passwords via the config file, trojan-go also supports configuring passwords via MySQL, see below. The client password must match a password in the server's configuration file or database records to pass server validation and use the proxy service normally.
 
-```disable_http_check```是否禁用HTTP伪装服务器可用性检查。
+`disable_http_check` whether to disable the HTTP camouflage server availability check.
 
-```udp_timeout``` UDP会话超时时间。
+`udp_timeout` UDP session timeout.
 
-### ```ssl```选项
+### ```ssl``` Options
 
-```verify```表示客户端(client/nat/forward)是否校验服务端提供的证书合法性，默认开启。出于安全性考虑，这个选项不应该在实际场景中选择false，否则可能遭受中间人攻击。如果使用自签名或者自签发的证书，开启```verify```会导致校验失败。这种情况下，应当保持```verify```开启，然后在```cert```中填写服务端的证书，即可正常连接。
+`verify` indicates whether the client (client/nat/forward) verifies the validity of the server's certificate. Enabled by default. For security reasons, this option should not be set to false in real scenarios, as it may expose you to man-in-the-middle attacks. If using self-signed or self-issued certificates, enabling `verify` will cause validation to fail. In this case, keep `verify` enabled and fill in the server's certificate in `cert` to connect normally.
 
-```verify_hostname```表示服务端是否校验客户端提供的SNI与服务端设置的一致性。如果服务端SNI字段留空，认证将被强制关闭。
+`verify_hostname` indicates whether the server verifies that the SNI provided by the client is consistent with the server's setting. If the server SNI field is left blank, authentication is forcibly disabled.
 
-服务端必须填入```cert```和```key```，对应服务器的证书和私钥文件，请注意证书是否有效/过期。如果使用权威CA签发的证书，客户端(client/nat/forward)可以不填写```cert```。如果使用自签名或者自签发的证书，应当在的```cert```处填入服务器证书文件，否则可能导致校验失败。
+The server must fill in `cert` and `key`, corresponding to the server's certificate and private key files. Please check whether the certificate is valid/expired. If using a certificate signed by an authoritative CA, the client (client/nat/forward) does not need to fill in `cert`. If using self-signed or self-issued certificates, fill in the server certificate file at `cert`, otherwise validation may fail.
 
-```sni```指的是TLS客户端请求中的服务器名字段，一般和证书的Common Name相同。如果你使用let'sencrypt等机构签发的证书，这里填入你的域名。对于客户端，如果这一项未填，将使用```remote_addr```填充。你应当指定一个有效的SNI（和远端证书CN一致），否则客户端可能无法验证远端证书有效性从而无法连接；对于服务端，若此项不填，则使用证书中Common Name作为SNI校验依据，支持通配符如*.example.com。
+`sni` refers to the server name field in the TLS client request, generally the same as the certificate's Common Name. If you are using a certificate issued by Let's Encrypt etc., fill in your domain name here. For the client, if this field is not filled in, `remote_addr` will be used. You should specify a valid SNI (consistent with the remote certificate CN), otherwise the client may not be able to verify the remote certificate's validity and fail to connect. For the server, if this field is not filled in, the Common Name in the certificate is used as the SNI validation basis, supporting wildcards such as `*.example.com`.
 
-```fingerprint```用于指定客户端TLS Client Hello指纹伪造类型，以抵抗GFW对于TLS Client Hello指纹的特征识别和阻断。trojan-go使用[utls](https://github.com/refraction-networking/utls)进行指纹伪造，默认伪造Firefox的指纹。合法的值有
+`fingerprint` is used to specify the client TLS Client Hello fingerprint spoofing type, to resist GFW's fingerprint recognition and blocking of TLS Client Hello. trojan-go uses [utls](https://github.com/refraction-networking/utls) for fingerprint spoofing, and by default spoofs the Firefox fingerprint. Valid values are:
 
-- ""，不使用指纹伪造（默认）
+- `""`, do not use fingerprint spoofing (default)
 
-- "firefox"，伪造Firefox指纹
+- `"firefox"`, spoof Firefox fingerprint
 
-- "chrome"，伪造Chrome指纹
+- `"chrome"`, spoof Chrome fingerprint
 
-- "ios"，伪造iOS指纹
+- `"ios"`, spoof iOS fingerprint
 
-一旦指纹的值被设置，客户端的```cipher```，```curves```，```alpn```，```session_ticket```等有可能影响指纹的字段将使用该指纹的特定设置覆写。
+Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `session_ticket` and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint.
 
-```ech```是否启用 Encrypted Client Hello（ECH）。启用后，客户端将在 TLS 握手时隐藏真实 SNI。支持两种模式：
+`ech` whether to enable Encrypted Client Hello (ECH). When enabled, the client will hide the real SNI during the TLS handshake. Two modes are supported:
 
-- 当```ech```设为```true```且```ech_config```为空时，使用 GREASE ECH 模式，在 Client Hello 中加入伪造的 ECH 扩展，模拟 Chrome 等浏览器的行为，提升 TLS 指纹真实性。
-- 当```ech```设为```true```且```ech_config```不为空时，使用完整 ECH 模式，真实 SNI 将被加密传输。
+- When `ech` is set to `true` and `ech_config` is empty, GREASE ECH mode is used, adding a fake ECH extension to the Client Hello to simulate the behavior of browsers like Chrome and improve TLS fingerprint authenticity.
+- When `ech` is set to `true` and `ech_config` is non-empty, full ECH mode is used, and the real SNI will be transmitted in encrypted form.
 
-```ech_config```完整 ECH 模式使用的 ECHConfigList，采用 base64 编码，通常通过可信的 DNS 解析器查询目标域名的 HTTPS 记录获取。如果```ech```为```false```，此字段将被忽略。
+`ech_config` The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If `ech` is `false`, this field is ignored.
 
-```alpn```为TLS的应用层协议协商指定协议。在TLS Client/Server Hello中传输，协商应用层使用的协议，仅用作指纹伪造，并无实际作用。**如果使用了CDN，错误的alpn字段可能导致与CDN协商得到错误的应用层协议**。
+`alpn` specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. This is only used for fingerprint spoofing and has no practical effect. **If using a CDN, an incorrect alpn field may cause the CDN to negotiate an incorrect application layer protocol.**
 
-```prefer_server_cipher```客户端是否偏好选择服务端在协商中提供的密码学套件。
+`prefer_server_cipher` whether the client prefers the cipher suite provided by the server during negotiation.
 
-```cipher```TLS使用的密码学套件。```cipher13``字段与此字段合并。只有在你明确知道自己在做什么的情况下，才应该去填写此项以修改trojan-go使用的TLS密码学套件。**正常情况下，你应该将其留空或者不填**，trojan-go会根据当前硬件平台以及远端的情况，自动选择最合适的加密算法以提升性能和安全性。如果需要填写，密码学套件名用分号(":")分隔，按优先顺序排列。Go的TLS库中弃用了TLS1.2中部分不安全的密码学套件，并完全支持TLS1.3。默认情况下，trojan-go将优先使用更安全的TLS1.3。
+`cipher` The TLS cipher suite. The `cipher13` field is merged with this field. You should only fill this in if you clearly know what you are doing. **In normal circumstances, you should leave this empty or not fill it in.** trojan-go will automatically select the most appropriate encryption algorithm based on the current hardware platform and remote conditions to improve performance and security. If you need to fill it in, cipher suite names are separated by semicolons (":") in priority order. Go's TLS library has deprecated some insecure TLS 1.2 cipher suites and fully supports TLS 1.3. By default, trojan-go will prefer the more secure TLS 1.3.
 
-```curves```指定TLS在ECDHE中偏好使用的椭圆曲线。只有你明确知道自己在做什么的情况下，才应该填写此项。曲线名称用分号(":")分隔，按优先顺序排列。
+`curves` specifies the elliptic curves that TLS prefers to use in ECDHE. Only fill this in if you clearly know what you are doing. Curve names are separated by semicolons (":") in priority order.
 
-```plain_http_response```指服务端TLS握手失败时，明文发送的原始数据（原始TCP数据）。这个字段填入该文件路径。推荐使用```fallback_port```而不是该字段。
+`plain_http_response` refers to the raw data (raw TCP data) that the server sends in plaintext when TLS handshake fails. Fill in the file path for this field. It is recommended to use `fallback_port` instead of this field.
 
-```fallback_addr```和```fallback_port```指服务端TLS握手失败时，trojan-go将该连接重定向到该地址。这是trojan-go的特性，以便更好地隐蔽服务器，抵抗GFW的主动检测，使得服务器的443端口在遭遇非TLS协议的探测时，行为与正常服务器完全一致。当服务器接受了一个连接但无法进行TLS握手时，如果```fallback_port```不为空，则流量将会被代理至fallback_addr:fallback_port。如果```fallback_addr```为空，则用```remote_addr```填充。例如，你可以在本地使用nginx开启一个https服务，当你的服务器443端口被非TLS协议请求时（比如http请求），trojan-go将代理至本地https服务器，nginx将使用http协议明文返回一个400 Bad Request页面。你可以通过使用浏览器访问```http://your-domain-name.com:443```进行验证。
+`fallback_addr` and `fallback_port` specify the address to which trojan-go redirects the connection when the server TLS handshake fails. This is a trojan-go feature to better hide the server and resist GFW's active probing, making the server's port 443 behave exactly like a normal server when probed with non-TLS protocols. When the server accepts a connection but cannot perform TLS handshake, if `fallback_port` is non-empty, the traffic will be proxied to `fallback_addr:fallback_port`. If `fallback_addr` is empty, `remote_addr` is used. For example, you can run an HTTPS service locally with nginx, and when your server's port 443 receives a non-TLS protocol request (such as an HTTP request), trojan-go will proxy it to the local HTTPS server, and nginx will return a 400 Bad Request page in plaintext HTTP. You can verify this by using a browser to access `http://your-domain-name.com:443`.
 
-```key_log```TLS密钥日志的文件路径。如果填写则开启密钥日志。**记录密钥将破坏TLS的安全性，此项不应该用于除调试以外的其他任何用途。**
+`key_log` The file path for the TLS key log. If filled in, key logging is enabled. **Recording keys breaks TLS security and this option should not be used for any purpose other than debugging.**
 
-### ```mux```多路复用选项
+### ```mux``` Multiplexing Options
 
-多路复用是trojan-go的特性。如果服务器和客户端都是trojan-go，可以开启mux多路复用以减少高并发情景下的延迟（只需要客户端开启此选项即可，服务端自动适配）。
+Multiplexing is a trojan-go feature. If both server and client use trojan-go, you can enable mux multiplexing to reduce latency in high-concurrency scenarios (only the client needs to enable this option; the server adapts automatically).
 
-注意，多路复用的意义在于降低握手延迟，而不是提升链路速度。相反，它会增加客户端和服务端的CPU和内存消耗，从而可能造成速度下降。
+Note that the significance of multiplexing is to reduce handshake latency, not to improve link speed. On the contrary, it increases CPU and memory consumption on both client and server, which may cause speed reduction.
 
-```enabled```是否开启多路复用。
+`enabled` whether to enable multiplexing.
 
-```concurrency```指单个TLS隧道可以承载的最大连接数，默认为8。这个数值越大，多连接并发时TLS由于握手产生的延迟就越低，但网络吞吐量可能会有所降低，填入负数或者0表示所有连接只使用一个TLS隧道承载。
+`concurrency` specifies the maximum number of connections a single TLS tunnel can carry, defaulting to 8. The larger this value, the lower the latency caused by TLS handshakes when many connections are concurrent, but network throughput may decrease. A negative number or 0 means all connections use only one TLS tunnel.
 
-```idle_timeout```空闲超时时间。指TLS隧道在空闲多长时间之后关闭，单位为秒。如果数值为负值或0，则一旦TLS隧道空闲，则立即关闭。
+`idle_timeout` idle timeout. Specifies how long after the TLS tunnel is idle before it is closed, in seconds. If the value is negative or 0, the TLS tunnel is closed immediately when idle.
 
-### ```router```路由选项
+### ```router``` Routing Options
 
-路由功能是trojan-go的特性。trojan-go的路由策略有三种。
+The routing function is a trojan-go feature. trojan-go has three routing policies:
 
-- Proxy 代理。将请求通过TLS隧道进行代理，由trojan服务器和目的地址进行连接。
+- Proxy. Route the request through the TLS tunnel; trojan server connects to the destination.
 
-- Bypass 绕过。直接在本地和目的地址进行连接。
+- Bypass. Connect directly to the destination locally.
 
-- Block 封锁。不代理请求，直接关闭连接。
+- Block. Do not proxy the request, directly close the connection.
 
-在```proxy```, ```bypass```, ```block```字段中填入对应列表geoip/geosite或路由规则，trojan-go即根据列表中的IP（CIDR）或域名执行相应路由策略。客户端(client)可以配置三种策略，服务端(server)只可配置block策略。
+Fill in the corresponding geoip/geosite or routing rules in the `proxy`, `bypass`, `block` fields, and trojan-go will execute the corresponding routing policy according to the IP (CIDR) or domain names in the lists. The client can configure three policies; the server can only configure the block policy.
 
-```enabled```是否开启路由模块。
+`enabled` whether to enable the routing module.
 
-```default_policy```指的是三个列表匹配均失败后，使用的默认策略，默认为"proxy"，即进行代理。合法的值有
+`default_policy` refers to the default policy used when all three list matches fail, defaulting to "proxy" (i.e., proxy the connection). Valid values are:
 
 - "proxy"
 
@@ -234,97 +234,97 @@ weight: 30
 
 - "block"
 
-含义同上。
+Same meaning as above.
 
-```domain_strategy```域名解析策略，默认"as_is"。合法的值有：
+`domain_strategy` Domain name resolution strategy, default "as_is". Valid values are:
 
-- "as_is"，只在各列表中的域名规则内进行匹配。
+- "as_is", only match within the domain name rules in each list.
 
-- "ip_if_non_match"，先在各列表中的域名规则内进行匹配；如果不匹配，则解析为IP后，在各列表中的IP地址规则内进行匹配。该策略可能导致DNS泄漏或遭到污染。
+- "ip_if_non_match", first match within the domain name rules in each list; if no match, resolve to IP and match within the IP address rules in each list. This strategy may cause DNS leaks or DNS poisoning.
 
-- "ip_on_demand"，先解析为IP，在各列表中的IP地址规则内进行匹配；如果不匹配，则在各列表中的域名规则内进行匹配。该策略可能导致DNS泄漏或遭到污染。
+- "ip_on_demand", first resolve to IP and match within the IP address rules in each list; if no match, match within the domain name rules in each list. This strategy may cause DNS leaks or DNS poisoning.
 
-```geoip```和```geosite```字段指geoip和geosite数据库文件路径，默认使用程序所在目录的geoip.dat和geosite.dat。也可以通过指定环境变量TROJAN_GO_LOCATION_ASSET指定工作目录。
+The `geoip` and `geosite` fields specify the paths to the geoip and geosite database files, defaulting to geoip.dat and geosite.dat in the program directory. You can also specify the working directory via the environment variable TROJAN_GO_LOCATION_ASSET.
 
-### ```websocket```选项
+### ```websocket``` Options
 
-Websocket传输是trojan-go的特性。在**正常的直接连接代理节点**的情况下，开启这个选项不会改善你的链路速度（甚至有可能下降），也不会提升你的连接安全性。你只应该在需要利用CDN进行中转，或利用nginx等服务器根据路径分发的情况下，使用websocket。
+WebSocket transport is a trojan-go feature. **Under normal direct proxy node connection conditions**, enabling this option will not improve your link speed (it may even decrease it), nor will it improve your connection security. You should only use WebSocket when you need to use CDN relay, or when distributing traffic by path using nginx or similar servers.
 
-```enabled```表示是否启用Websocket承载流量，服务端开启后同时支持一般Trojan协议和基于websocket的Trojan协议，客户端开启后将只使用websocket承载所有Trojan协议流量。
+`enabled` indicates whether to enable WebSocket to carry traffic. When enabled on the server, it supports both regular Trojan protocol and WebSocket-based Trojan protocol simultaneously. When enabled on the client, it will only use WebSocket to carry all Trojan protocol traffic.
 
-```path```指的是Websocket使用的URL路径，必须以斜杠("/")开头，如"/longlongwebsocketpath"，并且服务器和客户端必须一致。
+`path` refers to the URL path used by WebSocket, must start with a slash ("/"), such as "/longlongwebsocketpath", and must be consistent between server and client.
 
-```host```Websocket握手时，HTTP请求中使用的主机名。客户端如果留空则使用```remote_addr```填充。如果使用了CDN，这个选项一般填入域名。不正确的```host```可能导致CDN无法转发请求。
+`host` The hostname used in the HTTP request during WebSocket handshake. If left empty on the client, `remote_addr` is used. If using a CDN, this option generally contains the domain name. An incorrect `host` may prevent the CDN from forwarding requests.
 
-### ``shadowsocks`` AEAD加密选项
+### ```shadowsocks``` AEAD Encryption Options
 
-此选项用于替代弃用的混淆加密和双重TLS。如果此选项被设置启用，Trojan协议层下将插入一层Shadowsocks AEAD加密层。也即（已经加密的）TLS隧道内，所有的Trojan协议将再使用AEAD方法进行加密。注意，此选项和Websocket是否开启无关。无论Websocket是否开启，所有Trojan流量都会被再进行一次加密。
+This option is used to replace the deprecated obfuscation encryption and dual TLS. If this option is enabled, a Shadowsocks AEAD encryption layer will be inserted below the Trojan protocol layer. That is, within the (already encrypted) TLS tunnel, all Trojan protocols will be further encrypted using AEAD. Note that this option is independent of whether WebSocket is enabled. Whether or not WebSocket is enabled, all Trojan traffic will be additionally encrypted.
 
-注意，开启这个选项将有可能降低传输性能，你只应该在不信任承载Trojan协议的传输信道的情况下，启用这个选项。例如：
+Note that enabling this option may reduce transmission performance. You should only enable this option when you do not trust the transmission channel carrying the Trojan protocol. For example:
 
-- 你使用了Websocket，经过不可信的CDN进行中转（如国内CDN）
+- You use WebSocket, relayed through an untrusted CDN (such as a domestic CDN)
 
-- 你与服务器的连接遭到了GFW针对TLS的中间人攻击
+- Your connection to the server has been subjected to a GFW man-in-the-middle attack targeting TLS
 
-- 你的证书失效，无法验证证书有效性
+- Your certificate has expired and certificate validity cannot be verified
 
-- 你使用了无法保证密码学安全的可插拔传输层
+- You have used a pluggable transport layer that cannot guarantee cryptographic security
 
-等等。
+Etc.
 
-由于使用的是AEAD，trojan-go可以正确判断请求是否有效，是否遭到主动探测，并作出相应的响应。
+Since AEAD is used, trojan-go can correctly determine whether a request is valid or whether it has been actively probed, and respond accordingly.
 
-```enabled```是否启用Shadowsocks AEAD加密Trojan协议层。
+`enabled` whether to enable Shadowsocks AEAD encryption of the Trojan protocol layer.
 
-```method```加密方式。合法的值有：
+`method` Encryption method. Valid values are:
 
 - "CHACHA20-IETF-POLY1305"
 
-- "AES-128-GCM" (默认)
+- "AES-128-GCM" (default)
 
 - "AES-256-GCM"
 
-```password```用于生成主密钥的密码。如果启用AEAD加密，必须确保客户端和服务端一致。
+`password` The password used to generate the master key. If AEAD encryption is enabled, this must be consistent between client and server.
 
-### ```transport_plugin```传输层插件选项
+### ```transport_plugin``` Transport Layer Plugin Options
 
-```enabled```是否启用传输层插件替代TLS传输。一旦启用传输层插件支持，trojan-go将会把**未经TLS加密的trojan协议流量明文传输给插件**，以允许用户对流量进行自定义的混淆和加密。
+`enabled` whether to enable the transport layer plugin to replace TLS transport. Once transport layer plugin support is enabled, trojan-go will **pass unencrypted trojan protocol traffic in plaintext to the plugin**, allowing users to apply custom obfuscation and encryption to the traffic.
 
-```type```插件类型。目前支持的类型有
+`type` Plugin type. Currently supported types are:
 
-- "shadowsocks"，支持符合[SIP003](https://shadowsocks.org/en/spec/Plugin.html)标准的shadowsocks混淆插件。trojan-go将在启动时按照SIP003标准替换环境变量并修改自身配置(```remote_addr/remote_port/local_addr/local_port```)，使插件与远端直接通讯，而trojan-go仅监听/连接插件。
+- "shadowsocks", supports Shadowsocks obfuscation plugins conforming to the [SIP003](https://shadowsocks.org/en/spec/Plugin.html) standard. trojan-go will replace environment variables and modify its own configuration (`remote_addr/remote_port/local_addr/local_port`) at startup according to the SIP003 standard, allowing the plugin to communicate directly with the remote end, while trojan-go only listens to/connects to the plugin.
 
-- "plaintext"，使用明文传输。选择此项，trojan-go不会修改任何地址配置(```remote_addr/remote_port/local_addr/local_port```)，也不会启动```command```中插件，仅移除最底层的TLS传输层并使用TCP明文传输。此选项目的为支持nginx等接管TLS并进行分流，以及高级用户进行调试测试。**请勿直接使用明文传输模式穿透防火墙。**
+- "plaintext", uses plaintext transport. Selecting this option, trojan-go will not modify any address configuration (`remote_addr/remote_port/local_addr/local_port`), will not start the plugin in `command`, and only removes the bottom-level TLS transport layer and uses TCP plaintext transport. This option is intended to support nginx and other tools that take over TLS and perform traffic splitting, as well as for advanced users for debugging and testing. **Do not use plaintext transport mode directly to penetrate firewalls.**
 
-- "other"，其他插件。选择此项，trojan-go不会修改任何地址配置(```remote_addr/remote_port/local_addr/local_port```)，但会启动```command```中插件并传入参数和环境变量。
+- "other", other plugins. Selecting this option, trojan-go will not modify any address configuration (`remote_addr/remote_port/local_addr/local_port`), but will start the plugin in `command` and pass parameters and environment variables.
 
-```command```传输层插件可执行文件的路径。trojan-go将在启动时一并执行它。
+`command` Path to the transport layer plugin executable. trojan-go will execute it when starting.
 
-```arg```传输层插件启动参数。这是一个列表，例如```["-config", "test.json"]```。
+`arg` Transport layer plugin startup parameters. This is a list, such as `["-config", "test.json"]`.
 
-```env```传输层插件环境变量。这是一个列表，例如```["VAR1=foo", "VAR2=bar"]```。
+`env` Transport layer plugin environment variables. This is a list, such as `["VAR1=foo", "VAR2=bar"]`.
 
-```option```传输层插件配置（SIP003)。例如```"obfs=http;obfs-host=www.baidu.com"```。
+`option` Transport layer plugin configuration (SIP003). For example, `"obfs=http;obfs-host=www.baidu.com"`.
 
-### ```tcp```选项
+### ```tcp``` Options
 
-```no_delay```TCP封包是否直接发出而不等待缓冲区填满。
+`no_delay` whether TCP packets are sent immediately without waiting for the buffer to fill.
 
-```keep_alive```是否启用TCP心跳存活检测。
+`keep_alive` whether to enable TCP keepalive detection.
 
-```prefer_ipv4```是否优先使用IPv4地址。
+`prefer_ipv4` whether to prefer IPv4 addresses.
 
-### ```mysql```数据库选项
+### ```mysql``` Database Options
 
-trojan-go兼容trojan的基于mysql的用户管理方式，但更推荐的方式是使用API。
+trojan-go is compatible with Trojan's MySQL-based user management, but the more recommended approach is to use the API.
 
-```enabled```表示是否启用mysql数据库进行用户验证。
+`enabled` indicates whether to use a MySQL database for user authentication.
 
-```check_rate```是trojan-go从MySQL获取用户数据并更新缓存的间隔时间，单位为秒。
+`check_rate` is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.
 
-其他选项可以顾名思义，不再赘述。
+Other options are self-explanatory and will not be elaborated on further.
 
-users表结构和trojan版本定义一致，下面是一个创建users表的例子。注意这里的password指的是密码经过SHA224散列之后的值（字符串），流量download, upload, quota的单位是字节。你可以通过修改数据库users表中的用户记录的方式，添加和删除用户，或者指定用户的流量配额。trojan-go会根据所有的用户流量配额，自动更新当前有效的用户列表。如果download+upload>quota，trojan-go服务器将拒绝该用户的连接。
+The users table structure is consistent with the Trojan version definition. Below is an example of creating the users table. Note that the password here refers to the SHA224 hash of the password (a string), and the units of traffic download, upload, quota are bytes. You can add and delete users, or specify users' traffic quotas by modifying the user record in the database's users table. trojan-go will automatically update the currently valid user list based on all users' traffic quotas. If download+upload>quota, the trojan-go server will reject that user's connection.
 
 ```mysql
 CREATE TABLE users (
@@ -339,36 +339,36 @@ CREATE TABLE users (
 );
 ```
 
-### ```forward_proxy```前置代理选项
+### ```forward_proxy``` Upstream Proxy Options
 
-前置代理选项允许使用其他代理承载trojan-go的流量
+The upstream proxy option allows using another proxy to carry trojan-go's traffic.
 
-```enabled```是否启用前置代理(socks5)。
+`enabled` whether to enable the upstream proxy (socks5).
 
-```proxy_addr```前置代理的主机地址。
+`proxy_addr` the host address of the upstream proxy.
 
-```proxy_port```前置代理的端口号。
+`proxy_port` the port of the upstream proxy.
 
-```username``` ```password```代理的用户和密码，如果留空则不使用认证。
+`username` `password` proxy username and password; if left empty, no authentication is used.
 
-### ```api```选项
+### ```api``` Options
 
-trojan-go基于gRPC提供了API，以支持服务端和客户端的管理和统计。可以实现客户端的流量和速度统计，服务端各用户的流量和速度统计，用户的动态增删和限速等。
+trojan-go provides an API based on gRPC to support management and statistics for both server and client. It can provide client traffic and speed statistics, per-user traffic and speed statistics on the server, dynamic user add/delete and speed limiting, etc.
 
-```enabled```是否启用API功能。
+`enabled` whether to enable the API feature.
 
-```api_addr```gRPC监听的地址。
+`api_addr` the address gRPC listens on.
 
-```api_port```gRPC监听的端口。
+`api_port` the port gRPC listens on.
 
-```ssl``` TLS相关设置。
+`ssl` TLS-related settings.
 
-- ```enabled```是否使用TLS传输gRPC流量。
+- `enabled` whether to use TLS to transport gRPC traffic.
 
-- ```key```，```cert```服务器私钥和证书。
+- `key`, `cert` server private key and certificate.
 
-- ```verify_client```是否认证客户端证书。
+- `verify_client` whether to authenticate client certificates.
 
-- ```client_cert```如果开启客户端认证，此处填入认证的客户端证书列表。
+- `client_cert` if client authentication is enabled, fill in the list of authenticated client certificates here.
 
-警告：**不要将未开启TLS双向认证的API服务直接暴露在互联网上，否则可能导致各类安全问题。**
+Warning: **Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.**

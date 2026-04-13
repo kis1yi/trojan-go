@@ -1,23 +1,23 @@
 ---
-title: "Websocket"
+title: "WebSocket"
 draft: false
 weight: 40
 ---
 
-由于使用CDN中转时，HTTPS对CDN透明，CDN可以审查Websocket传输内容。而Trojan协议本身是明文传输，因此为保证安全性，可添加一层Shadowsocks AEAD加密层以混淆流量特征并保证安全性。
+When using CDN relay, HTTPS is transparent to the CDN, which can inspect the WebSocket transmission content. Since the Trojan protocol itself transmits in plaintext, a Shadowsocks AEAD encryption layer can be added to obfuscate traffic characteristics and ensure security.
 
-**如果你使用的是中国境内运营商提供的CDN，请务必开启AEAD加密**
+**If you are using a CDN provided by a carrier in mainland China, you must enable AEAD encryption**
 
-开启AEAD加密后，Websocket承载的流量将被Shadowsocks AEAD加密，头部具体格式参见Shadowsocks白皮书。
+After enabling AEAD encryption, the traffic carried via WebSocket will be encrypted with Shadowsocks AEAD. For the specific header format, refer to the Shadowsocks whitepaper.
 
-开启Websocket支持后，协议栈如下：
+After enabling WebSocket support, the protocol stack is as follows:
 
-| 协议        | 备注             |
+| Protocol    | Note                        |
 | ----------- | ---------------- |
-| 真实流量    |                  |
-| SimpleSocks | 如果开启多路复用 |
-| smux        | 如果开启多路复用 |
+| Real Traffic    |                  |
+| SimpleSocks | If multiplexing is enabled |
+| smux        | If multiplexing is enabled |
 | Trojan      |                  |
-| Shadowsocks | 如果开启加密     |
-| Websocket   |                  |
-| 传输层协议  |                  |
+| Shadowsocks | If encryption is enabled     |
+| WebSocket   |                  |
+| Transport Layer Protocol  |                  |

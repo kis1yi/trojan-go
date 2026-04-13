@@ -1,30 +1,30 @@
 ---
-title: "URL方案（草案）"
+title: "URL Scheme (Draft)"
 draft: false
 weight: 200
 ---
 
 ## Changelog
 
-- encryption 格式修改为 ss;method:password
+- `encryption` format changed to `ss;method:password`
 
-## 概述
+## Overview
 
-感谢 @DuckSoft @StudentMain @phlinhng 对 Trojan-Go URL 方案的讨论和贡献。**目前 URL 方案为草案，需要更多的实践和讨论。**
+Thanks to @DuckSoft, @StudentMain, and @phlinhng for their discussion and contributions to the Trojan-Go URL scheme. **The URL scheme is currently a draft and requires more practice and discussion.**
 
-Trojan-Go**客户端**可以接受URL，以定位服务器资源。原则如下:
+The Trojan-Go **client** can accept URLs to locate server resources. The principles are:
 
-- 遵守 URL 格式规范
+- Follow URL format specifications
 
-- 保证人类可读，对机器友好
+- Ensure human readability and machine friendliness
 
-- URL 的作用，是定位 Trojan-Go 节点资源，方便资源分享
+- The purpose of a URL is to locate Trojan-Go node resources and facilitate resource sharing
 
-需要注意，基于人类可读性的考虑，禁止将 base64 等编码数据嵌入 URL 中。首先， base64 编码不能保证传输安全，其意义在于在 ASCII 信道传输非 ASCII 数据。其次，如果需要保证分享 URL 时的传输安全，请对明文 URL 进行加密，而不是修改 URL 格式。
+Note: for human readability reasons, embedding base64-encoded data in URLs is prohibited. First, base64 encoding does not guarantee transmission security; its purpose is to transmit non-ASCII data over ASCII channels. Second, if transmission security is needed when sharing a URL, encrypt the plaintext URL instead of modifying the URL format.
 
-## 格式
+## Format
 
-基本格式如下，`$()` 代表此处需要 `encodeURIComponent`。
+The basic format is as follows. `$()` indicates the content must be `encodeURIComponent`-encoded.
 
 ```text
 trojan-go://
@@ -43,130 +43,130 @@ trojan-go://
 #$(descriptive-text)
 ```
 
-例如
+For example
 
 ```text
 trojan-go://password1234@google.com/?sni=microsoft.com&type=ws&host=youtube.com&path=%2Fgo&encryption=ss%3Baes-256-gcm%3Afuckgfw
 ```
 
-由于 Trojan-Go 兼容 Trojan，所以对于 Trojan 的 URL 方案
+Since Trojan-Go is compatible with Trojan, the Trojan URL scheme
 
 ```text
 trojan://password@remote_host:remote_port
 ```
 
-可以兼容接受。它等价于
+can be accepted compatibly. It is equivalent to
 
 ```text
 trojan-go://password@remote_host:remote_port
 ```
 
-需要注意的是，一旦服务器使用了非Trojan兼容的功能，必须使用```trojan-go://```定位服务器。这样设计的目的是使得 Trojan-Go 的 URL 不会被 Trojan 错误接受，避免污染 Trojan 用户的 URL 分享。同时，Trojan-Go 确保可以兼容接受 Trojan 的 URL。
+Note that once the server uses features that are not Trojan-compatible, `trojan-go://` must be used to locate the server. This design prevents Trojan-Go URLs from being incorrectly accepted by original Trojan, avoiding contamination of Trojan users' URL sharing. At the same time, Trojan-Go ensures backward compatibility with Trojan URLs.
 
-## 详述
+## Details
 
-注意：所有参数名和常数字符串均区分大小写。
+Note: all parameter names and constant strings are case-sensitive.
 
 ### `trojan-password`
 
-Trojan 的密码。
-不可省略，不能为空字符串，不建议含有非 ASCII 可打印字符。
-必须使用 `encodeURIComponent` 编码。
+The Trojan password.
+Cannot be omitted, cannot be an empty string; non-ASCII printable characters are not recommended.
+Must be encoded with `encodeURIComponent`.
 
 ### `trojan-host`
 
-节点 IP / 域名。
-不可省略，不能为空字符串。
-IPv6 地址必须扩方括号。
-IDN 域名（如“百度.cn”）必须使用 `xn--xxxxxx` 格式。
+Node IP / domain name.
+Cannot be omitted, cannot be an empty string.
+IPv6 addresses must be enclosed in square brackets.
+IDN domains (e.g., "百度.cn") must use the `xn--xxxxxx` format.
 
 ### `port`
 
-节点端口。
-省略时默认为 `443`。
-必须取 `[1,65535]` 中的整数。
+Node port.
+Defaults to `443` when omitted.
+Must be an integer in `[1,65535]`.
 
-### `tls`或`allowInsecure`
+### `tls` or `allowInsecure`
 
-没有这个字段。
-TLS 默认一直启用，除非有传输插件禁用它。
-TLS 认证必须开启。无法使用根CA校验服务器身份的节点，不适合分享。
+This field does not exist.
+TLS is always enabled by default unless a transport plugin disables it.
+TLS authentication must be enabled. Nodes that cannot verify server identity via a root CA are not suitable for sharing.
 
 ### `sni`
 
-自定义 TLS 的 SNI。
-省略时默认与 `trojan-host` 同值。不得为空字符串。
+Custom TLS SNI.
+Defaults to the same value as `trojan-host` when omitted. Must not be an empty string.
 
-必须使用 `encodeURIComponent` 编码。
+Must be encoded with `encodeURIComponent`.
 
 ### `type`
 
-传输类型。
-省略时默认为 `original`，但不可为空字符串。
-目前可选值只有 `original` 和 `ws`，未来可能会有 `h2`、`h2+ws` 等取值。
+Transport type.
+Defaults to `original` when omitted; must not be an empty string.
+Currently the only valid values are `original` and `ws`; future values may include `h2`, `h2+ws`, etc.
 
-当取值为 `original` 时，使用原始 Trojan 传输方式，无法方便通过 CDN。
-当取值为 `ws` 时，使用 Websocket over TLS 传输。
+When set to `original`, the original Trojan transport is used, which cannot conveniently pass through a CDN.
+When set to `ws`, WebSocket over TLS transport is used.
 
 ### `host`
 
-自定义 HTTP `Host` 头。
-可以省略，省略时值同 `trojan-host`。
-可以为空字符串，但可能带来非预期情形。
+Custom HTTP `Host` header.
+Can be omitted; defaults to the same value as `trojan-host`.
+Can be an empty string, but this may cause unexpected behavior.
 
-警告：若你的端口非标准端口（不是 80 / 443），RFC 标准规定 `Host` 应在主机名后附上端口号，例如 `example.com:44333`。至于是否遵守，请自行斟酌。
+Warning: if your port is non-standard (not 80/443), RFC standards require that `Host` include the port number after the hostname, e.g., `example.com:44333`. Whether to comply is at your discretion.
 
-必须使用 `encodeURIComponent` 编码。
+Must be encoded with `encodeURIComponent`.
 
 ### `path`
 
-当传输类型 `type` 取 `ws`、`h2`、`h2+ws` 时，此项有效。
-不可省略，不可为空。
-必须以 `/` 开头。
-可以使用 URL 中的 `&` `#` `?` 等字符，但应当是合法的 URL 路径。
+Valid when `type` is `ws`, `h2`, or `h2+ws`.
+Cannot be omitted, cannot be empty.
+Must start with `/`.
+May contain `&`, `#`, `?` and other URL characters, but must be a valid URL path.
 
-必须使用 `encodeURIComponent` 编码。
+Must be encoded with `encodeURIComponent`.
 
 ### `mux`
 
-没有这个字段。
-当前服务器默认一直支持 `mux`。
-启用 `mux` 与否各有利弊，应由客户端决定自己是否启用。URL的作用，是定位服务器资源，而不是规定用户使用偏好。
+This field does not exist.
+The current server always supports `mux` by default.
+Whether to enable `mux` has trade-offs; it should be decided by the client. The purpose of a URL is to locate server resources, not to dictate user preferences.
 
 ### `encryption`
 
-用于保证 Trojan 流量密码学安全的加密层。
-可省略，默认为 `none`，即不使用加密。
-不可以为空字符串。
+The encryption layer used to ensure cryptographic security of Trojan traffic.
+Can be omitted; defaults to `none`, meaning no encryption.
+Must not be an empty string.
 
-必须使用 encodeURIComponent 编码。
+Must be encoded with `encodeURIComponent`.
 
-使用 Shadowsocks 算法进行流量加密时，其格式为：
+When using Shadowsocks for traffic encryption, the format is:
 
 ```text
 ss;method:password
 ```
 
-其中 ss 是固定内容，method 是加密方法，必须为下列之一：
+Where `ss` is a fixed string, `method` is the encryption method, which must be one of:
 
 - `aes-128-gcm`
 - `aes-256-gcm`
 - `chacha20-ietf-poly1305`
 
-其中的 `password` 是 Shadowsocks 的密码，不得为空字符串。
-`password` 中若包含分号，不需要进行转义。
-`password` 应为英文可打印 ASCII 字符。
+Where `password` is the Shadowsocks password; it must not be an empty string.
+If `password` contains a semicolon, no escaping is needed.
+`password` should consist of printable ASCII characters.
 
-其他加密方案待定。
+Other encryption schemes are to be determined.
 
 ### `plugin`
 
-额外的插件选项。本字段保留。
-可省略，但不可以为空字符串。
+Additional plugin options. This field is reserved.
+Can be omitted, but must not be an empty string.
 
-### URL Fragment (# 后内容)
+### URL Fragment (content after #)
 
-节点说明。
-不建议省略，不建议为空字符串。
+Node description.
+It is not recommended to omit it or leave it as an empty string.
 
-必须使用 `encodeURIComponent` 编码。
+Must be encoded with `encodeURIComponent`.

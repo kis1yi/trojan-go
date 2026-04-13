@@ -1,26 +1,26 @@
 ---
-title: "使用Shadowsocks AEAD进行二次加密"
+title: "Secondary Encryption with Shadowsocks AEAD"
 draft: false
 weight: 8
 ---
 
-### 注意，Trojan不支持这个特性
+### Note: Trojan does not support this feature
 
-Trojan协议本身无加密，其安全性依赖于下层的TLS。在一般情况下，TLS安全性很好，并不需要再次加密Trojan流量。但是，某些场景下，你可能无法保证TLS隧道的安全性：
+The Trojan protocol itself has no encryption; its security depends on the underlying TLS. Under normal circumstances, TLS security is good and there is no need to encrypt Trojan traffic again. However, in some scenarios, you may not be able to guarantee the security of the TLS tunnel:
 
-- 你使用了Websocket，经过不可信的CDN进行中转（如国内CDN）
+- You use WebSocket, relayed through an untrusted CDN (such as a domestic CDN)
 
-- 你与服务器的连接遭到了GFW针对TLS的中间人攻击
+- Your connection to the server has been subjected to a GFW man-in-the-middle attack targeting TLS
 
-- 你的证书失效，无法验证证书有效性
+- Your certificate has expired and certificate validity cannot be verified
 
-- 你使用了无法保证密码学安全的可插拔传输层
+- You have used a pluggable transport layer that cannot guarantee cryptographic security
 
-等等。
+Etc.
 
-Trojan-Go支持使用Shadowsocks AEAD对Trojan-Go进行加密。其本质是在Trojan协议下方加上一层Shadowsocks AEAD加密。服务端和客户端必须同时开启，且密码和加密方式必须一致，否则无法进行通讯。
+Trojan-Go supports encrypting Trojan-Go traffic using Shadowsocks AEAD. The essence is adding a Shadowsocks AEAD encryption layer below the Trojan protocol. Both server and client must enable it simultaneously, and the password and encryption method must be identical, otherwise communication is impossible.
 
-要开启AEAD加密，只需添加一个```shadowsocks```选项：
+To enable AEAD encryption, simply add a `shadowsocks` option:
 
 ```json
 ...
@@ -31,4 +31,4 @@ Trojan-Go支持使用Shadowsocks AEAD对Trojan-Go进行加密。其本质是在T
 }
 ```
 
-```method```如果省略，则默认使用AES-128-GCM。更多信息，参见“完整的配置文件”一节。
+If `method` is omitted, AES-128-GCM is used by default. For more information, see the "Complete Configuration File" section.

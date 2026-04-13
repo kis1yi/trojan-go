@@ -1,16 +1,16 @@
 ---
-title: "Trojan协议"
+title: "Trojan Protocol"
 draft: false
 weight: 20
 ---
 
-Trojan-Go遵循原始的trojan协议，具体格式可以参考[Trojan文档](https://trojan-gfw.github.io/trojan/protocol)，这里不再赘述。
+Trojan-Go follows the original Trojan protocol. For the specific format, please refer to the [Trojan documentation](https://trojan-gfw.github.io/trojan/protocol); it will not be repeated here.
 
-默认情况下，trojan协议使用TLS来承载，协议栈如下：
+By default, the Trojan protocol is carried by TLS. The protocol stack is as follows:
 
-| 协议     |
-| -------- |
-| 真实流量 |
-| Trojan   |
-| TLS      |
-| TCP      |
+| Protocol   |
+| ---------- |
+| Real Traffic |
+| Trojan     |
+| TLS        |
+| TCP        |

@@ -1,33 +1,30 @@
 ---
-title: "Trojan基本原理"
+title: "Basic Principles of Trojan"
 draft: false
 weight: 21
 ---
 
-这个页面将会简单讲述Trojan协议的基本工作原理。如果你对于GFW和Trojan的工作方式不感兴趣，可以跳过这一小节。但为了更好地保护你的通讯安全性和节点的隐蔽性，我还是建议你阅读。
+This page briefly describes the basic working principles of the Trojan protocol. If you are not interested in how GFW and Trojan work, you can skip this section. However, for better protection of your communication security and node concealment, I still recommend reading it.
 
-## 为什么（使用流密码的）Shadowsocks容易遭到封锁
+## Why Shadowsocks (with stream ciphers) is Easily Blocked
 
-防火墙在早期仅仅只是对出境流量进行截获和审查，也即**被动检测**。Shadowsocks的加密协议设计使得传输的数据包本身几乎没有任何特征，看起来类似于完全随机的比特流，这在早期的确能有效绕过GFW。
+In its early days, the firewall only intercepted and inspected outbound traffic — what is called **passive detection**. The encryption protocol design of Shadowsocks made the transmitted data packets themselves have almost no distinguishing features, looking like a completely random bitstream, which was indeed effective at bypassing the GFW in the early days.
 
-目前的GFW已经开始采用**主动探测**的方式。具体来说，当GFW发现一个可疑的无法识别的连接时（大流量，随机字节流，高位端口等特征），将会**主动连接**这个服务器端口，重放之前捕获到的流量（或者经过一些精心修改后重放）。Shadowsocks服务器检测到不正常的连接，将连接断开。这种不正常的流量和断开连接的行为被视作可疑的Shadowsocks服务器的特征，于是该服务器被加入GFW的可疑名单中。这个名单不一定立即生效，而是在某些特殊的敏感时期，可疑名单中的服务器会遭到暂时或者永久的封锁。该可疑名单是否封锁，可能由人为因素决定。
+The current GFW has started using **active probing**. Specifically, when the GFW discovers a suspicious unrecognized connection (large traffic, random byte streams, high-numbered ports, etc.), it will **actively connect** to the server's port and replay previously captured traffic (or replay it after some careful modifications). The Shadowsocks server detects the abnormal connection and closes it. This abnormal traffic and connection-closing behavior is regarded as a characteristic of a suspicious Shadowsocks server, and the server is added to the GFW's suspect list. This list may not immediately take effect, but during some special sensitive periods, servers on the suspect list may be temporarily or permanently blocked. Whether this list is blocked may be determined by human factors.
 
-如果你想了解更多，可以参考[这篇文章](https://gfw.report/blog/gfw_shadowsocks/)。
+If you want to learn more, please refer to [this article](https://gfw.report/blog/gfw_shadowsocks/).
 
-## Trojan如何绕过GFW
+## How Trojan Bypasses the GFW
 
-与Shadowsocks相反，Trojan不使用自定义的加密协议来隐藏自身。相反，使用特征明显的TLS协议(TLS/SSL)，使得流量看起来与正常的HTTPS网站相同。TLS是一个成熟的加密体系，HTTPS即使用TLS承载HTTP流量。使用**正确配置**的加密TLS隧道，可以保证传输的
+Unlike Shadowsocks, Trojan does not use a custom encryption protocol to hide itself. Instead, it uses TLS (TLS/SSL) — a protocol with obvious characteristics — making traffic look the same as a normal HTTPS website. TLS is a mature encryption system; HTTPS uses TLS to carry HTTP traffic. Using a **correctly configured** encrypted TLS tunnel guarantees:
 
-- 保密性（GFW无法得知传输的内容）
+- Confidentiality (GFW cannot learn the content of transmission)
+- Integrity (once GFW attempts to tamper with the encrypted ciphertext, both communicating parties will detect it)
+- Non-repudiation (GFW cannot forge identities to impersonate the server or client)
+- Forward secrecy (even if the key is leaked, GFW cannot decrypt previously encrypted traffic)
 
-- 完整性（一旦GFW试图篡改传输的密文，通讯双方都会发现）
+For passive detection, Trojan protocol traffic has exactly the same characteristics and behavior as HTTPS traffic. HTTPS traffic accounts for more than half of current internet traffic, and once the TLS handshake succeeds all traffic is encrypted ciphertext, making it practically infeasible to distinguish Trojan protocol traffic from it.
 
-- 不可抵赖（GFW无法伪造身份冒充服务端或者客户端）
+For active detection, when the firewall actively connects to the Trojan server for detection, Trojan can correctly identify non-Trojan protocol traffic. Unlike Shadowsocks and other proxies, at this point Trojan does not close the connection but instead proxies this connection to a normal web server. From GFW's perspective, the server's behavior is exactly the same as a normal HTTPS website, making it impossible to determine whether it is a Trojan proxy node. This is also why Trojan recommends using a legitimate domain name and an HTTPS certificate signed by an authoritative CA: it makes your server completely undetectable as a Trojan server by GFW using active probing.
 
-- 前向安全（即使密钥泄露，GFW也无法解密先前的加密流量）
-
-对于被动检测，Trojan协议的流量与HTTPS流量的特征和行为完全一致。而HTTPS流量占据了目前互联网流量的一半以上，且TLS握手成功后流量均为密文，几乎不存在可行方法从其中分辨出Trojan协议流量。
-
-对于主动检测，当防火墙主动连接Trojan服务器进行检测时，Trojan可以正确识别非Trojan协议的流量。与Shadowsocks等代理不同的是，此时Trojan不会断开连接，而是将这个连接代理到一个正常的Web服务器。在GFW看来，该服务器的行为和一个普通的HTTPS网站行为完全相同，无法判断是否是一个Trojan代理节点。这也是Trojan推荐使用合法的域名、使用权威CA签名的HTTPS证书的原因: 这让你的服务器完全无法被GFW使用主动检测判定是一个Trojan服务器。
-
-因此，就目前的情况来看，若要识别并阻断Trojan的连接，只能使用无差别封锁（封锁某个IP段，某一类证书，某一类域名，甚至阻断全国所有出境HTTPS连接）或发动大规模的中间人攻击（劫持所有TLS流量并劫持证书，审查内容）。对于中间人攻击，可以使用Websocket的双重TLS应对，高级配置中有详细讲解。
+Therefore, at the present time, to identify and block Trojan connections, one can only use indiscriminate blocking (blocking an IP segment, a class of certificates, a class of domain names, or even blocking all outbound HTTPS connections) or launch large-scale man-in-the-middle attacks (hijacking all TLS traffic and certificates to inspect content). For man-in-the-middle attacks, dual TLS via WebSocket can be used as a countermeasure, as explained in detail in the advanced configuration section.

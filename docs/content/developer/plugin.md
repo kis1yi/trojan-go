@@ -1,39 +1,39 @@
 ---
-title: "可插拔传输层插件开发"
+title: "Pluggable Transport Layer Plugin Development"
 draft: false
 weight: 150
 ---
 
-Trojan-Go鼓励开发传输层插件，以丰富协议类型，增加与GFW对抗的战略纵深。
+Trojan-Go encourages the development of transport layer plugins to enrich protocol diversity and increase the strategic depth of confrontation with the GFW.
 
-传输层插件的作用，是替代tansport隧道的TLS进行传输加密和混淆。
+The role of a transport layer plugin is to replace the TLS in the transport tunnel for transmission encryption and obfuscation.
 
-插件与Trojan-Go基于TCP Socket通讯，与Trojan-Go本身不存在任何耦合关系，你可以使用任何你喜欢的语言和设计模式进行开发。我们建议的参照[SIP003](https://shadowsocks.org/en/spec/Plugin.html)标准进行开发。如此开发的插件可以同时用于Trojan-Go和Shadowsocks。
+Plugins communicate with Trojan-Go via TCP sockets, with no coupling to Trojan-Go itself. You can develop using any language and design pattern you prefer. We recommend following the [SIP003](https://shadowsocks.org/en/spec/Plugin.html) standard. Plugins developed this way can be used with both Trojan-Go and Shadowsocks.
 
-Trojan-Go开启插件功能后，仅使用TCP进行传输（明文）。你的插件只需要处理入站的TCP请求即可。你可以将这些TCP流量转换成任何你喜欢的流量格式，如QUIC，HTTP，甚至是ICMP。
+After enabling the plugin functionality, Trojan-Go only uses TCP for transmission (plaintext). Your plugin only needs to handle inbound TCP requests. You can convert these TCP streams into any traffic format you like, such as QUIC, HTTP, or even ICMP.
 
-Trojan-Go插件设计原则，与Shadowsocks略有不同：
+The Trojan-Go plugin design principles differ slightly from those of Shadowsocks:
 
-1. 插件本身可以对传输内容进行加密，混淆和完整性校验，以及可以抵抗重放攻击。
+1. The plugin itself can perform encryption, obfuscation, integrity verification, and replay attack resistance on transmitted content.
 
-2. 插件应该伪造一种已有的、常见的服务（记做X服务），及其流量，在此基础上嵌入自己的加密内容。
+2. The plugin should impersonate an existing, commonly used service (call it Service X) and its traffic, embedding encrypted content within it.
 
-3. 服务端的插件，在检验到内容被篡改/遭到重放时，**必须将此连接交由Trojan-Go处理**。具体步骤是，将已读入和未读入的内容一并发送给Trojan-Go，并建立双向连接，而不是直接断开。Trojan-Go将与一个真实的X服务器建立连接，使攻击者直接与真实的X服务器进行交互。
+3. The server-side plugin, upon detecting tampered or replayed content, **must hand the connection over to Trojan-Go for processing**. The specific steps are: forward all already-read and unread content to Trojan-Go and establish a bidirectional connection, rather than dropping it directly. Trojan-Go will then connect to a real Service X server, causing the attacker to interact directly with the real Service X server.
 
-解释如下：
+The explanation is as follows:
 
-第一点原则，是由于Trojan协议本身并不加密。将TLS替换为传输层插件后，将**完全信任插件的安全性**。
+The first principle exists because the Trojan protocol itself is not encrypted. When TLS is replaced by a transport plugin, **full trust is placed in the security of the plugin**.
 
-第二点原则，是继承Trojan的精神。最适合隐藏一棵树的地方，是森林。
+The second principle inherits the spirit of Trojan. The best place to hide a tree is a forest.
 
-第三点原则，是为了充分利用Trojan-Go的抗主动探测特性。即使GFW对你的服务器进行主动探测，你的服务器也可以表现得与X服务一致，而不存在其他特征。
+The third principle is to fully leverage Trojan-Go's anti-active-probing capability. Even if the GFW actively probes your server, the server will behave consistently with Service X, leaving no other distinguishable characteristics.
 
-为了方便理解，举一个例子。
+For clarity, here is an example:
 
-1. 假设你的插件伪装的是MySQL流量。防火墙通过流量嗅探，发现你的MySQL流量大得异常，决定主动连接你的服务器进行主动探测。
+1. Suppose your plugin disguises itself as MySQL traffic. The firewall detects unusually high MySQL traffic through traffic sniffing and decides to actively connect to your server for probing.
 
-2. 防火墙连接到你的服务器并发送探测载荷，你的Trojan-Go服务端插件，经过校验，发现这个异常连接不是代理流量，于是将这个连接交由Trojan-Go处理。
+2. The firewall connects to your server and sends a probe payload. Your Trojan-Go server-side plugin, after verification, determines the abnormal connection is not proxy traffic, and hands the connection over to Trojan-Go.
 
-3. Trojan-Go发现这个连接异常，将这个连接重定向到一个真正的MySQL服务器上。于是，防火墙开始与一个真正的MySQL服务器进行交互，发现其行为与真实MySQL服务器无异，无法对服务器进行封禁。
+3. Trojan-Go detects the abnormal connection and redirects it to a real MySQL server. The firewall then interacts with the real MySQL server, finds its behavior indistinguishable from a genuine MySQL server, and is unable to block the service.
 
-另外，即使你的协议协议和插件不能满足原则2和原则3，甚至不能很好满足原则1，我们同样鼓励开发。因为GFW仅仅针对流行的协议进行审计和封锁，此类协议（土制密码学/土制协议）只要不公开发表，同样能保持非常强健的生命力。
+Additionally, even if your protocol and plugin do not satisfy principles 2 and 3, or even do not fully satisfy principle 1, we still encourage development. Since the GFW only audits and blocks popular protocols, such protocols (homemade cryptography / homemade protocols), as long as they are not publicly published, can maintain very strong vitality.

@@ -1,30 +1,30 @@
 ---
-title: "正确配置Trojan-Go"
+title: "Correctly Configuring Trojan-Go"
 draft: false
 weight: 22
 ---
 
-下面将介绍如何正确配置Trojan-Go以完全隐藏你的代理节点特征。
+The following describes how to correctly configure Trojan-Go to fully hide your proxy node's characteristics.
 
-在开始之前，你需要
+Before starting, you need:
 
-- 一个服务器，且未被GFW封锁
+- A server that is not blocked by the GFW
 
-- 一个域名，可以使用免费的域名服务，如.tk等
+- A domain name (free domain services such as .tk can be used)
 
-- Trojan-Go，可以从release页面下载
+- Trojan-Go, which can be downloaded from the release page
 
-- 证书和密钥，可以从letsencrypt等机构免费申请签发
+- A certificate and key, which can be freely obtained from authorities such as Let's Encrypt
 
-### 服务端配置
+### Server Configuration
 
-我们的目标是，使得你的服务器和正常的HTTPS网站表现相同。
+Our goal is to make your server behave identically to a normal HTTPS website.
 
-首先你需要一个HTTP服务器，可以使用nginx，apache，caddy等配置一个本地HTTP服务器，也可以使用别人的HTTP服务器。HTTP服务器的作用是，当GFW主动探测时，向它展示一个完全正常的Web页面。
+First you need an HTTP server. You can use nginx, Apache, Caddy, etc. to configure a local HTTP server, or use someone else's HTTP server. The purpose of the HTTP server is to display a completely normal web page to the GFW when it performs active probing.
 
-**你需要在```remote_addr```和```remote_port```指定这个HTTP服务器的地址。```remote_addr```可以是IP或者域名。Trojan-Go将会测试这个HTTP服务器是否工作正常，如果不正常，Trojan-Go会拒绝启动。**
+**You need to specify the address of this HTTP server in `remote_addr` and `remote_port`. `remote_addr` can be an IP or domain name. Trojan-Go will test whether this HTTP server is working properly; if it is not, Trojan-Go will refuse to start.**
 
-下面是一份比较安全的服务器配置server.json，需要你在本地80端口配置一个HTTP服务（必要，你也可以使用其他的网站HTTP服务器，如"remote_addr": "example.com"），在1234端口配置一个HTTPS服务，或是一个展示"400 Bad Request"的静态HTTP网页服务。（可选，可以删除```fallback_port```字段，跳过这个步骤）
+Below is a reasonably secure server configuration `server.json` that requires you to configure an HTTP service on local port 80 (required; you can also use another website's HTTP server, such as `"remote_addr": "example.com"`), and optionally an HTTPS service on port 1234 or a static HTTP page showing "400 Bad Request" (optional; the `fallback_port` field can be removed to skip this step):
 
 ```json
 {
@@ -44,31 +44,29 @@ weight: 22
 }
 ```
 
-这个配置文件使Trojan-Go在服务器的所有IP地址上(0.0.0.0)监听443端口，分别使用server.crt和server.key作为证书和密钥进行TLS握手。你应该使用尽可能复杂的密码，同时确保客户端和服务端```password```是一致的。注意，**Trojan-Go会检测你的HTTP服务器```http://remote_addr:remote_port```是否正常工作。如果你的HTTP服务器工作不正常，Trojan-Go将拒绝启动。**
+This configuration file makes Trojan-Go listen on port 443 on all IP addresses (0.0.0.0) of the server, using `server.crt` and `server.key` as the certificate and key for TLS handshake. You should use the most complex password possible, while ensuring that the `password` is consistent between client and server. Note that **Trojan-Go will check whether your HTTP server `http://remote_addr:remote_port` is working properly. If your HTTP server is not working, Trojan-Go will refuse to start.**
 
-当一个客户端试图连接Trojan-Go的监听端口时，会发生下面的事情：
+When a client attempts to connect to the Trojan-Go listening port, the following happens:
 
-- 如果TLS握手成功，检测到TLS的内容非Trojan协议（有可能是HTTP请求，或者来自GFW的主动探测）。Trojan-Go将TLS连接代理到本地127.0.0.1:80上的HTTP服务。这时在远端看来，Trojan-Go服务就是一个HTTPS网站。
+- If the TLS handshake succeeds and the TLS content is detected as non-Trojan protocol (possibly an HTTP request or active probing from the GFW), Trojan-Go proxies the TLS connection to the HTTP service on local 127.0.0.1:80. From a remote perspective, the Trojan-Go service appears as an HTTPS website.
 
-- 如果TLS握手成功，并且被确认是Trojan协议头部，并且其中的密码正确，那么服务器将解析来自客户端的请求并进行代理，否则和上一步的处理方法相同。
+- If the TLS handshake succeeds, the Trojan protocol header is confirmed, and the password is correct, the server will parse the request from the client and proxy it; otherwise it is handled the same as the previous step.
 
-- 如果TLS握手失败，说明对方使用的不是TLS协议进行连接。此时Trojan-Go将这个TCP连接代理到本地127.0.0.1:1234上运行的HTTPS服务（或者HTTP服务），返回一个展示400 Bad Reqeust的HTTP页面。```fallback_port```是一个可选选项，如果没有填写，Trojan-Go会直接终止连接。虽然是可选的，但是还是强烈建议填写。
+- If the TLS handshake fails, it means the other party is not using TLS protocol to connect. Trojan-Go will proxy this TCP connection to the HTTPS service (or HTTP service) running on local 127.0.0.1:1234, returning an HTTP page showing 400 Bad Request. `fallback_port` is an optional field; if not filled in, Trojan-Go will directly terminate the connection. Although optional, it is still strongly recommended to fill it in.
 
-你可以通过使用浏览器访问你的域名```https://your-domain-name.com```来验证。如果工作正常，你的浏览器会显示一个正常的HTTPS保护的Web页面，页面内容与服务器本机80端口上的页面一致。你还可以使用```http://your-domain-name.com:443```验证```fallback_port```工作是否正常。
+You can verify by using a browser to access your domain `https://your-domain-name.com`. If it works properly, your browser will display a normal HTTPS-protected web page with content consistent with the page on port 80 of the server. You can also use `http://your-domain-name.com:443` to verify that `fallback_port` is working properly.
 
-事实上，你甚至可以将Trojan-Go当作你的HTTPS服务器，用来给你的网站提供HTTPS服务。访客可以正常地通过Trojan-Go浏览你的网站，而和代理流量互不影响。但是注意，不要在```remote_port```和```fallback_port```搭建有高实时性需求的服务，Trojan-Go识别到非Trojan协议流量时会有意增加少许延迟以抵抗GFW基于时间的检测。
+In fact, you can even use Trojan-Go as your HTTPS server to provide HTTPS service for your website. Visitors can normally browse your website through Trojan-Go without affecting proxy traffic. However, note that you should not set up services with high real-time requirements on `remote_port` and `fallback_port`, as Trojan-Go will intentionally add a small delay when detecting non-Trojan protocol traffic to resist GFW's time-based detection.
 
-配置完成后，可以使用
+After configuration, you can start the server with:
 
 ```shell
 ./trojan-go -config ./server.json
 ```
 
-启动服务端。
+### Client Configuration
 
-### 客户端配置
-
-对应的客户端配置client.json
+The corresponding client configuration `client.json`:
 
 ```json
 {
@@ -86,16 +84,14 @@ weight: 22
 }
 ```
 
-这个客户端配置使Trojan-Go开启一个监听在本地1080端口的socks5/http代理（自动识别），远端服务器为your_awesome_server:443，your_awesome_server可以是IP或者域名。
+This client configuration makes Trojan-Go open a Socks5/HTTP proxy (automatically detected) listening on local port 1080. The remote server is `your_awesome_server:443`, where `your_awesome_server` can be an IP or domain name.
 
-如果你在```remote_addr```中填写的是域名，```sni```可以省略。如果你在```remote_addr```填写的是IP地址，```sni```字段应当填写你申请证书的对应域名，或者你自己签发的证书的Common Name，而且必须一致。注意，```sni```字段目前的在TLS协议中是**明文传送**的(目的是使服务器提供相应证书)。GFW已经被证实具有SNI探测和阻断能力，所以不要填写类似```google.com```等已经被封锁的域名，否则很有可能导致你的服务器也被遭到封锁。
+If you fill in a domain name in `remote_addr`, `sni` can be omitted. If you fill in an IP address in `remote_addr`, the `sni` field should contain the domain name corresponding to the certificate you applied for, or the Common Name of the self-signed certificate, and they must be consistent. Note that the `sni` field is currently transmitted in **plaintext** in the TLS protocol (to allow the server to provide the appropriate certificate). The GFW has been proven to have SNI detection and blocking capabilities, so do not fill in domain names that are already blocked (such as `google.com`), as this may very likely cause your server to be blocked as well.
 
-配置完成后，可以使用
+After configuration, you can start the client with:
 
 ```shell
 ./trojan-go -config ./client.json
 ```
 
-启动客户端。
-
-更多关于配置文件的信息，可以在左侧导航栏中找到相应介绍。
+More information about configuration files can be found in the corresponding sections in the left navigation bar.

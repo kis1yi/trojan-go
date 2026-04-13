@@ -1,75 +1,75 @@
 ---
-title: "自定义协议栈"
+title: "Customizing the Protocol Stack"
 draft: false
 weight: 8
 ---
 
-### 注意，Trojan不支持这个特性
+### Note: Trojan does not support this feature
 
-Trojan-Go允许高级用户自定义协议栈。在自定义模式下，Trojan-Go将放弃对协议栈的控制，允许用户操作底层协议栈组合。例如
+Trojan-Go allows advanced users to customize the protocol stack. In custom mode, Trojan-Go relinquishes control of the protocol stack, allowing users to operate the underlying protocol stack combinations. For example:
 
-- 在一层TLS上再建立一层或更多层TLS加密
+- Building one or more additional TLS encryption layers on top of a TLS layer
 
-- 使用TLS传输Websocket流量，在Websocket层上再建立一层TLS，在第二层TLS上再使用Shadowsocks AEAD进行加密传输
+- Using TLS to carry WebSocket traffic, then establishing another TLS on the WebSocket layer, then using Shadowsocks AEAD for encrypted transport on the second TLS layer
 
-- 在TCP连接上，使用Shadowsocks的AEAD加密传输Trojan协议
+- Using Shadowsocks AEAD encrypted transport of Trojan protocol over a TCP connection
 
-- 将一个入站Trojan的TLS流量解包后重新用TLS包装为新的出站Trojan流量
+- Unwrapping inbound Trojan TLS traffic and re-wrapping it as new outbound Trojan TLS traffic
 
-等等。
+Etc.
 
-**如果你不了解网络相关知识，请不要尝试使用这个功能。不正确的配置可能导致Trojan-Go无法正常工作，或是导致性能和安全性方面的问题。**
+**If you are not familiar with networking concepts, please do not try to use this feature. Incorrect configuration may cause Trojan-Go to malfunction, or cause performance and security issues.**
 
-Trojan-Go将所有协议抽象为隧道，每个隧道可能提供客户端，负责发送；也可能提供服务端，负责接受；或者两者皆提供。自定义协议栈即自定义隧道的堆叠方式。
+Trojan-Go abstracts all protocols (including routing functions, etc.) as tunnels. Each tunnel may provide a client (for sending) and/or a server (for receiving). The custom protocol stack customizes how tunnels are stacked.
 
-### 在继续配置之前，请先阅读开发指南中“基本介绍”一节，确保已经理解Trojan-Go运作方式
+### Before continuing, please first read the "Introduction" section in the Developer Guide to ensure you understand how Trojan-Go works.
 
-下面是Trojan-Go支持的隧道和他们的属性:
+Below are the tunnels supported by Trojan-Go and their properties:
 
-| 隧道        | 需要下层提供流 | 需要下层提供包 | 向上层提供流 | 向上层提供包 | 可以作为入站 | 可以作为出站 |
-| ----------- | -------------- | -------------- | ------------ | ------------ | ------------ | ------------ |
-| transport   | n              | n              | y            | y            | y            | y            |
-| dokodemo    | n              | n              | y            | y            | y            | n            |
-| tproxy      | n              | n              | y            | y            | y            | n            |
-| tls         | y              | n              | y            | n            | y            | y            |
-| trojan      | y              | n              | y            | y            | y            | y            |
-| mux         | y              | n              | y            | n            | y            | y            |
-| simplesocks | y              | n              | y            | y            | y            | y            |
-| shadowsocks | y              | n              | y            | n            | y            | y            |
-| websocket   | y              | n              | y            | n            | y            | y            |
-| freedom     | n              | n              | y            | y            | n            | y            |
-| socks       | y              | y              | y            | y            | y            | n            |
-| http        | y              | n              | y            | n            | y            | n            |
-| router      | y              | y              | y            | y            | n            | y            |
-| adapter     | n              | n              | y            | y            | y            | n            |
+| Tunnel      | Requires stream from below | Requires packet from below | Provides stream above | Provides packet above | Can be inbound | Can be outbound |
+| ----------- | -------------------------- | -------------------------- | --------------------- | --------------------- | -------------- | --------------- |
+| transport   | n                          | n                          | y                     | y                     | y              | y               |
+| dokodemo    | n                          | n                          | y                     | y                     | y              | n               |
+| tproxy      | n                          | n                          | y                     | y                     | y              | n               |
+| tls         | y                          | n                          | y                     | n                     | y              | y               |
+| trojan      | y                          | n                          | y                     | y                     | y              | y               |
+| mux         | y                          | n                          | y                     | n                     | y              | y               |
+| simplesocks | y                          | n                          | y                     | y                     | y              | y               |
+| shadowsocks | y                          | n                          | y                     | n                     | y              | y               |
+| websocket   | y                          | n                          | y                     | n                     | y              | y               |
+| freedom     | n                          | n                          | y                     | y                     | n              | y               |
+| socks       | y                          | y                          | y                     | y                     | y              | n               |
+| http        | y                          | n                          | y                     | n                     | y              | n               |
+| router      | y                          | y                          | y                     | y                     | n              | y               |
+| adapter     | n                          | n                          | y                     | y                     | y              | n               |
 
-自定义协议栈的工作方式是，定义树/链上节点并分别它们起名（tag）并添加配置，然后使用tag组成的有向路径，描述这棵树/链。例如，对于一个典型的Trojan-Go服务器，可以如此描述：
+The custom protocol stack works by defining tree/chain nodes, naming them with tags and adding configuration, then using tag-composed directed paths to describe the tree/chain. For example, for a typical Trojan-Go server, it can be described as follows:
 
-入站，一共两条路径，tls节点将自动识别trojan和websocket流量并进行分发
+Inbound, two paths in total. The tls node automatically identifies and dispatches trojan and websocket traffic:
 
 - transport->tls->trojan
 
 - transport->tls->websocket->trojan
 
-出站，只能有一条路径
+Outbound, only one path is allowed:
 
 - router->freedom
 
-对于入站，从根开始描述多条路径，组成一棵**多叉树**（也可以退化为一条链），不满足树性质的图将导致未定义的行为；对于出站，必须描述一条**链**。
+For inbound, describe multiple paths starting from the root to form a **multi-way tree** (can also degenerate to a single chain). A graph that does not satisfy tree properties will lead to undefined behavior. For outbound, a single **chain** must be described.
 
-每条路径必须满足这样的条件：
+Each path must meet the following conditions:
 
-1. 必须以**不需要下层提供流或包**的隧道开始(transport/adapter/tproxy/dokodemo等)
+1. Must begin with a tunnel that **does not require stream or packet from below** (transport/adapter/tproxy/dokodemo, etc.)
 
-2. 必须以**能向上层提供包和流**的隧道终止(trojan/simplesocks/freedom等)
+2. Must end with a tunnel that **can provide both packets and streams to the layer above** (trojan/simplesocks/freedom, etc.)
 
-3. 出站单链上，隧道必须都可作为出站。入站的所有路径上，隧道必须都可作为入站。
+3. On the outbound single chain, all tunnels must be able to act as outbound. On all inbound paths, all tunnels must be able to act as inbound.
 
-要启用自定义协议栈，将```run_type```指定为custom，此时除```inbound```和```outbound```之外的其他选项将被忽略。
+To enable the custom protocol stack, set `run_type` to `custom`. At this point, all options other than `inbound` and `outbound` will be ignored.
 
-下面是一个例子，你可以在此基础上插入或减少协议节点。配置文件为简明起见，使用YAML进行配置，你也可以使用JSON来配置，除格式不同之外，效果是等价的。
+Below is an example. You can insert or remove protocol nodes on this basis. For conciseness, the configuration file uses YAML; you can also use JSON, the effect is equivalent modulo format differences.
 
-客户端 client.yaml
+Client `client.yaml`:
 
 ```yaml
 run-type: custom
@@ -121,7 +121,7 @@ outbound:
 
 ```
 
-服务端 server.yaml
+Server `server.yaml`:
 
 ```yaml
 run-type: custom

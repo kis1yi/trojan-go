@@ -1,17 +1,17 @@
 ---
-title: "多路复用"
+title: "Multiplexing"
 draft: false
 weight: 30
 ---
 
-Trojan-Go使用[smux](https://github.com/xtaci/smux)实现多路复用。同时实现了simplesocks协议用于进行代理传输。
+Trojan-Go uses [smux](https://github.com/xtaci/smux) to implement multiplexing. It also implements the simplesocks protocol for proxy transport.
 
-当启用多路复用时，客户端首先发起TLS连接，使用正常trojan协议格式，但协议Command部分填入0x7f(protocol.Mux)，标识此连接为复用连接（类似于http的upgrade），之后连接交由smux客户端管理。服务器收到请求头部后，交由smux服务器解析该连接的所有流量。在每条分离出的smux连接上，使用simplesocks协议（去除认证部分的trojan协议)标明代理目的地。自顶向下的协议栈如下：
+When multiplexing is enabled, the client first initiates a TLS connection using the normal Trojan protocol format, but fills the Command field with 0x7f (protocol.Mux) to identify the connection as a multiplexed one (similar to HTTP's upgrade). The connection is then handed over to the smux client for management. After the server receives the request header, the smux server parses all traffic on that connection. On each demultiplexed smux connection, the simplesocks protocol (Trojan protocol with authentication removed) is used to identify the proxy destination. The top-down protocol stack is as follows:
 
-| 协议        | 备注     |
+| Protocol            | Note               |
 | ----------- | -------- |
-| 真实流量    |
+| Real Traffic        |
 | SimpleSocks |
 | smux        |
-| Trojan      | 用于鉴权 |
-| 底层协议    |          |
+| Trojan      | For Authentication |
+| Underlying Protocol |                  |

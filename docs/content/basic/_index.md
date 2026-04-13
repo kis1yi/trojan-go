@@ -1,7 +1,7 @@
 ---
-title: "基本配置"
+title: "Basic Configuration"
 draft: false
 weight: 20
 ---
 
-这一部分内容将介绍如何配置基本的Trojan-Go代理服务器和客户端。
+This section describes how to configure a basic Trojan-Go proxy server and client.

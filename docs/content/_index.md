@@ -1,18 +1,18 @@
 ---
-title: "简介"
+title: "Introduction"
 draft: false
 weight: 10
 ---
 
 # Trojan-Go
 
-这里是Trojan-Go的文档，你可以在左侧的导航栏中找到一些使用技巧，以及完整的配置文件说明。
+This is the Trojan-Go documentation. You can find usage tips and the complete configuration file reference in the left navigation bar.
 
-Trojan-Go是使用Go语言实现的完整的Trojan代理，和Trojan协议以及原版的配置文件格式兼容。支持并且兼容Trojan-GFW版本的绝大多数功能，并扩展了更多的实用功能。
+Trojan-Go is a complete Trojan proxy implemented in Go, compatible with the Trojan protocol and the original configuration file format. It supports and is compatible with the vast majority of features of the Trojan-GFW version, and extends it with more practical features.
 
-Trojan-Go的的首要目标是保障传输安全性和隐蔽性。在此前提下，尽可能提升传输性能和易用性。
+The primary goal of Trojan-Go is to ensure transport security and concealment. Given this premise, it aims to maximize transport performance and ease of use.
 
-如果你遇到配置和使用方面的问题，发现了软件Bug，或是有更好的想法，欢迎加入Trojan-Go的[Telegram交流反馈群](https://t.me/trojan_go_chat)。
+If you encounter configuration or usage issues, find software bugs, or have better ideas, you are welcome to join the Trojan-Go [Telegram discussion group](https://t.me/trojan_go_chat).
 
 ----
 

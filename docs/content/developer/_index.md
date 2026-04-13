@@ -1,7 +1,7 @@
 ---
-title: "实现细节和开发指南"
+title: "Implementation Details and Developer Guide"
 draft: false
 weight: 40
 ---
 
-这一部分介绍Trojan-Go底层实现的细节，主要面向开发者。
+This section describes the underlying implementation details of Trojan-Go, primarily aimed at developers.
