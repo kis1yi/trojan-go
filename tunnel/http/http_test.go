@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/test/util"
-	"github.com/p4gefau1t/trojan-go/tunnel/transport"
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/test/util"
+	"github.com/kis1yi/trojan-go/tunnel/transport"
 )
 
 func TestHTTP(t *testing.T) {

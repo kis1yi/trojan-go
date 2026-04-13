@@ -2,7 +2,7 @@
 
 package sqlite
 
-import "github.com/p4gefau1t/trojan-go/statistic"
+import "github.com/kis1yi/trojan-go/statistic"
 
 const Name = "sqlite"
 

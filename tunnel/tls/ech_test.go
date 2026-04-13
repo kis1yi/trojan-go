@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/p4gefau1t/trojan-go/config"
+	"github.com/kis1yi/trojan-go/config"
 )
 
 func makeECHCtx(ech bool, echConfig string, sni string) context.Context {
@@ -13,9 +13,9 @@ func makeECHCtx(ech bool, echConfig string, sni string) context.Context {
 		RemoteHost: "example.com",
 		RemotePort: 443,
 		TLS: TLSConfig{
-			SNI:    sni,
-			Verify: true,
-			ECH:    ech,
+			SNI:       sni,
+			Verify:    true,
+			ECH:       ech,
 			ECHConfig: echConfig,
 		},
 	})

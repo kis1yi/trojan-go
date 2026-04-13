@@ -8,19 +8,19 @@
 - [x] Fixed the issue where server-side upload rate limiting is ineffective
 - [x] Fix the issue where blocking during connection forwarding may cause goroutine leaks
 
-# Trojan-Go [![Go Report Card](https://goreportcard.com/badge/github.com/p4gefau1t/trojan-go)](https://goreportcard.com/report/github.com/p4gefau1t/trojan-go) [![Downloads](https://img.shields.io/github/downloads/p4gefau1t/trojan-go/total?label=downloads&logo=github&style=flat-square)](https://img.shields.io/github/downloads/p4gefau1t/trojan-go/total?label=downloads&logo=github&style=flat-square)
+# Trojan-Go [![Go Report Card](https://goreportcard.com/badge/github.com/kis1yi/trojan-go)](https://goreportcard.com/report/github.com/kis1yi/trojan-go) [![Downloads](https://img.shields.io/github/downloads/kis1yi/trojan-go/total?label=downloads&logo=github&style=flat-square)](https://img.shields.io/github/downloads/kis1yi/trojan-go/total?label=downloads&logo=github&style=flat-square)
 
 A complete Trojan proxy implemented in Go, compatible with the original Trojan protocol and configuration file format. Secure, efficient, lightweight, and easy to use.
 
 Trojan-Go supports [multiplexing](#multiplexing) to improve concurrent performance; uses a [routing module](#routing-module) for domestic/overseas traffic splitting; supports [CDN traffic relay](#websocket) (based on WebSocket over TLS); supports [secondary encryption](#aead-encryption) of Trojan traffic using AEAD (based on Shadowsocks AEAD); supports pluggable [transport layer plugins](#transport-layer-plugins), allowing TLS to be replaced with other encrypted tunnels for Trojan protocol traffic.
 
-Pre-compiled binary executables can be downloaded from the [Release page](https://github.com/p4gefau1t/trojan-go/releases). They can be run directly after extraction, with no other component dependencies.
+Pre-compiled binary executables can be downloaded from the [Release page](https://github.com/kis1yi/trojan-go/releases). They can be run directly after extraction, with no other component dependencies.
 
 If you encounter configuration and usage issues, find bugs, or have better ideas, you are welcome to join the [Telegram discussion group](https://t.me/trojan_go_chat).
 
 ## Introduction
 
-**For a complete introduction and configuration tutorial, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).**
+**For a complete introduction and configuration tutorial, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).**
 
 Trojan-Go is compatible with most features of the original Trojan, including but not limited to:
 
@@ -52,7 +52,7 @@ Additionally, Trojan-Go also implements more efficient and easy-to-use features:
 Trojan-Go server is compatible with all original Trojan clients such as Igniter and ShadowRocket. The following clients support Trojan-Go extended features (WebSocket / Mux, etc.):
 
 - [Qv2ray](https://github.com/Qv2ray/Qv2ray): Cross-platform client, supports Windows / macOS / Linux, uses the Trojan-Go core, supports all Trojan-Go extended features.
-- [Igniter-Go](https://github.com/p4gefau1t/trojan-go-android): Android client, forked from Igniter with the core replaced by Trojan-Go and some modifications, supports all Trojan-Go extended features.
+- [Igniter-Go](https://github.com/kis1yi/trojan-go-android): Android client, forked from Igniter with the core replaced by Trojan-Go and some modifications, supports all Trojan-Go extended features.
 
 ## Usage
 
@@ -90,7 +90,7 @@ Trojan-Go server is compatible with all original Trojan clients such as Igniter 
         -d \
         -v /etc/trojan-go/:/etc/trojan-go \
         --network host \
-        p4gefau1t/trojan-go
+        kis1yi/trojan-go
     ```
 
    or
@@ -101,7 +101,7 @@ Trojan-Go server is compatible with all original Trojan clients such as Igniter 
         -d \
         -v /path/to/host/config:/path/in/container \
         --network host \
-        p4gefau1t/trojan-go \
+        kis1yi/trojan-go \
         /path/in/container/config.json
     ```
 
@@ -119,11 +119,11 @@ For example, to cross-compile a Trojan-Go for a mips processor, Linux OS, with c
 CGO_ENABLED=0 GOOS=linux GOARCH=mips go build -tags "client" -trimpath -ldflags "-s -w -buildid="
 ```
 
-For a complete list of tag descriptions, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).
+For a complete list of tag descriptions, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ### Ease of Use
 
-The configuration file format is compatible with the original Trojan, but greatly simplified. Unspecified fields are assigned default values, making it more convenient to deploy servers and clients. Here is a simple example; for the complete configuration file see [here](https://p4gefau1t.github.io/trojan-go).
+The configuration file format is compatible with the original Trojan, but greatly simplified. Unspecified fields are assigned default values, making it more convenient to deploy servers and clients. Here is a simple example; for the complete configuration file see [here](https://kis1yi.github.io/trojan-go).
 
 Server configuration file `server.json`:
 
@@ -184,7 +184,7 @@ Add the `websocket` option to both server and client configuration files to enab
 }
 ```
 
-For a complete description of options, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).
+For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 `hostname` can be omitted, but the `path` must be consistent between server and client. Once the server enables WebSocket support, it can simultaneously support both WebSocket and regular Trojan traffic. Clients without the WebSocket option configured can still use the service normally.
 
@@ -204,7 +204,7 @@ You can enable it by setting the `enabled` field in the client's `mux` option:
 }
 ```
 
-Only the client needs to be configured; the server adapts automatically. For a complete description of options, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).
+Only the client needs to be configured; the server adapts automatically. For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ### Routing Module
 
@@ -236,7 +236,7 @@ To activate the routing module, add the `router` option in the configuration fil
 }
 ```
 
-For a complete description of options, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).
+For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ### AEAD Encryption
 
@@ -279,7 +279,7 @@ Client configuration:
 }
 ```
 
-For a complete description of options, refer to the [Trojan-Go Documentation](https://p4gefau1t.github.io/trojan-go).
+For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ## Build
 
@@ -288,7 +288,7 @@ For a complete description of options, refer to the [Trojan-Go Documentation](ht
 Build using `make`:
 
 ```shell
-git clone https://github.com/p4gefau1t/trojan-go.git
+git clone https://github.com/kis1yi/trojan-go.git
 cd trojan-go
 make
 make install # Install systemd service, etc. (optional)
@@ -330,4 +330,4 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags "full"
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/p4gefau1t/trojan-go.svg)](https://starchart.cc/p4gefau1t/trojan-go)
+[![Stargazers over time](https://starchart.cc/kis1yi/trojan-go.svg)](https://starchart.cc/kis1yi/trojan-go)

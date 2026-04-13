@@ -6,11 +6,11 @@ import (
 
 	"github.com/shadowsocks/go-shadowsocks2/core"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/redirector"
-	"github.com/p4gefau1t/trojan-go/tunnel"
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/redirector"
+	"github.com/kis1yi/trojan-go/tunnel"
 )
 
 type Server struct {

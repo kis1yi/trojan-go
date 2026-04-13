@@ -8,7 +8,7 @@ on:
 name: docker-nightly-build
 jobs:
   build:
-    if: github.repository == 'p4gefau1t/trojan-go'
+    if: github.repository == 'kis1yi/trojan-go'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the code

@@ -1,6 +1,6 @@
 [Unit]
 Description=Trojan-Go - An unidentifiable mechanism that helps you bypass GFW
-Documentation=https://p4gefau1t.github.io/trojan-go/
+Documentation=https://kis1yi.github.io/trojan-go/
 After=network.target nss-lookup.target
 
 [Service]

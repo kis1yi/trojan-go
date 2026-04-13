@@ -1,5 +1,5 @@
 NAME := trojan-go
-PACKAGE_NAME := github.com/p4gefau1t/trojan-go
+PACKAGE_NAME := github.com/kis1yi/trojan-go
 VERSION := `git describe --tags`
 COMMIT := `git rev-parse HEAD`
 

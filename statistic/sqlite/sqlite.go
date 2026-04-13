@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/glebarez/sqlite"
-	"github.com/p4gefau1t/trojan-go/statistic"
+	"github.com/kis1yi/trojan-go/statistic"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

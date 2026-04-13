@@ -1,6 +1,6 @@
 package custom
 
-import "github.com/p4gefau1t/trojan-go/config"
+import "github.com/kis1yi/trojan-go/config"
 
 const Name = "CUSTOM"
 

@@ -8,11 +8,11 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/statistic"
-	"github.com/p4gefau1t/trojan-go/statistic/sqlite"
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/statistic"
+	"github.com/kis1yi/trojan-go/statistic/sqlite"
 )
 
 const Name = "MEMORY"

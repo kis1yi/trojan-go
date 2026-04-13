@@ -6,11 +6,11 @@ import (
 	"io"
 	"net"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/recorder"
-	"github.com/p4gefau1t/trojan-go/tunnel"
-	"github.com/p4gefau1t/trojan-go/tunnel/mux"
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/recorder"
+	"github.com/kis1yi/trojan-go/tunnel"
+	"github.com/kis1yi/trojan-go/tunnel/mux"
 )
 
 type PacketConn struct {

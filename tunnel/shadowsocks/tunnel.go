@@ -3,7 +3,7 @@ package shadowsocks
 import (
 	"context"
 
-	"github.com/p4gefau1t/trojan-go/tunnel"
+	"github.com/kis1yi/trojan-go/tunnel"
 )
 
 const Name = "SHADOWSOCKS"

@@ -13,18 +13,18 @@ import (
 
 	netproxy "golang.org/x/net/proxy"
 
-	_ "github.com/p4gefau1t/trojan-go/api"
-	_ "github.com/p4gefau1t/trojan-go/api/service"
-	"github.com/p4gefau1t/trojan-go/common"
-	_ "github.com/p4gefau1t/trojan-go/log/golog"
-	"github.com/p4gefau1t/trojan-go/proxy"
-	_ "github.com/p4gefau1t/trojan-go/proxy/client"
-	_ "github.com/p4gefau1t/trojan-go/proxy/forward"
-	_ "github.com/p4gefau1t/trojan-go/proxy/nat"
-	_ "github.com/p4gefau1t/trojan-go/proxy/server"
-	_ "github.com/p4gefau1t/trojan-go/statistic/memory"
-	"github.com/p4gefau1t/trojan-go/test/util"
-	"github.com/p4gefau1t/trojan-go/tunnel/trojan"
+	_ "github.com/kis1yi/trojan-go/api"
+	_ "github.com/kis1yi/trojan-go/api/service"
+	"github.com/kis1yi/trojan-go/common"
+	_ "github.com/kis1yi/trojan-go/log/golog"
+	"github.com/kis1yi/trojan-go/proxy"
+	_ "github.com/kis1yi/trojan-go/proxy/client"
+	_ "github.com/kis1yi/trojan-go/proxy/forward"
+	_ "github.com/kis1yi/trojan-go/proxy/nat"
+	_ "github.com/kis1yi/trojan-go/proxy/server"
+	_ "github.com/kis1yi/trojan-go/statistic/memory"
+	"github.com/kis1yi/trojan-go/test/util"
+	"github.com/kis1yi/trojan-go/tunnel/trojan"
 )
 
 // test key and cert

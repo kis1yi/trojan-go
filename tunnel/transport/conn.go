@@ -3,7 +3,7 @@ package transport
 import (
 	"net"
 
-	"github.com/p4gefau1t/trojan-go/tunnel"
+	"github.com/kis1yi/trojan-go/tunnel"
 )
 
 type Conn struct {

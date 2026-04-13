@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/common/geodata"
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/geodata"
 )
 
 func init() {
