@@ -30,6 +30,7 @@ type apiController struct {
 	uploadSpeedLimit   *int
 	downloadSpeedLimit *int
 	ipLimit            *int
+	quota              *int64
 	ctx                context.Context
 }
 
@@ -120,6 +121,7 @@ func (o *apiController) setUsers(apiClient service.TrojanServerServiceClient) er
 				UploadSpeed:   uint64(*o.uploadSpeedLimit),
 				DownloadSpeed: uint64(*o.downloadSpeedLimit),
 			},
+			Quota: *o.quota,
 		},
 	}
 
@@ -204,6 +206,7 @@ func init() {
 		uploadSpeedLimit:   flag.Int("upload-speed-limit", 0, "Limit the upload speed with API"),
 		downloadSpeedLimit: flag.Int("download-speed-limit", 0, "Limit the download speed with API"),
 		ipLimit:            flag.Int("ip-limit", 0, "Limit the number of IP with API"),
+		quota:              flag.Int64("quota", 0, "Set the quota of the target user with API (negative=unlimited, 0=disabled, positive=byte limit)"),
 		ctx:                context.Background(),
 	})
 }
