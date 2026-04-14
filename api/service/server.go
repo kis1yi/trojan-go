@@ -73,6 +73,7 @@ func (s *ServerAPI) GetUsers(stream TrojanServerService_GetUsersServer) error {
 				},
 				IpCurrent: int32(ipCurrent),
 				IpLimit:   int32(ipLimit),
+				Quota:     user.GetQuota(),
 			},
 		})
 		if err != nil {
@@ -115,7 +116,12 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 					break
 				}
 			}
-			err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit))
+			if err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit)); err != nil {
+				break
+			}
+			if req.Status.Quota != 0 {
+				err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.Quota)
+			}
 		case SetUsersRequest_Delete:
 			err = s.auth.DelUser(req.Status.User.Hash)
 		case SetUsersRequest_Modify:
@@ -131,7 +137,10 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 					break
 				}
 			}
-			err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit))
+			if err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit)); err != nil {
+				break
+			}
+			err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.Quota)
 		}
 		if err != nil {
 			stream.Send(&SetUsersResponse{
@@ -174,6 +183,7 @@ func (s *ServerAPI) ListUsers(req *ListUsersRequest, stream TrojanServerService_
 				},
 				IpLimit:   int32(ipLimit),
 				IpCurrent: int32(ipCurrent),
+				Quota:     user.GetQuota(),
 			},
 		})
 		if err != nil {

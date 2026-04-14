@@ -25,6 +25,7 @@ message UserStatus {
     Speed speed_limit = 4;
     int32 ip_current = 5;
     int32 ip_limit = 6;
+    int64 quota = 7;
 }
 
 message GetTrafficRequest {
