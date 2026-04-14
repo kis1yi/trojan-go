@@ -12,6 +12,7 @@ type User struct {
 	MaxIPNum  int
 	SendLimit int
 	RecvLimit int
+	Quota     int64
 }
 
 func (u *User) setSent(sent uint64) {
@@ -42,4 +43,8 @@ func (u *User) GetSpeedLimit() (sent, recv int) {
 
 func (u *User) GetIPLimit() int {
 	return u.MaxIPNum
+}
+
+func (u *User) GetQuota() int64 {
+	return u.Quota
 }

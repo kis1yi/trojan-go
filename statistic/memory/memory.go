@@ -29,6 +29,7 @@ type User struct {
 	lastRecv    uint64
 	sendSpeed   uint64
 	recvSpeed   uint64
+	quota       int64
 	Hash        string
 	ipTable     sync.Map
 	ipNum       int32
@@ -85,6 +86,14 @@ func (u *User) setIPLimit(n int) {
 
 func (u *User) GetIPLimit() int {
 	return u.MaxIPNum
+}
+
+func (u *User) GetQuota() int64 {
+	return u.quota
+}
+
+func (u *User) SetQuota(quota int64) {
+	u.quota = quota
 }
 
 func (u *User) AddSentTraffic(sent int) {
@@ -309,6 +318,22 @@ func (a *Authenticator) SetUserIPLimit(hash string, limit int) error {
 	return nil
 }
 
+func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
+	u, exist := a.users.Load(hash)
+	if !exist {
+		return common.NewErrorf("user %v not found", hash)
+	}
+	user := u.(*User)
+	user.SetQuota(quota)
+	if a.pst != nil {
+		err := a.pst.SaveUser(user)
+		if err != nil {
+			log.Errorf("Save user %s failed: %s", hash, err)
+		}
+	}
+	return nil
+}
+
 func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
 	a := &Authenticator{
@@ -336,6 +361,7 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 			user.setIPLimit(u.GetIPLimit())
 			user.SetSpeedLimit(u.GetSpeedLimit())
 			user.setTraffic(u.GetTraffic())
+			user.SetQuota(u.GetQuota())
 			go user.speedUpdater()
 			go user.trafficUpdater(a.pst)
 			a.users.Store(hash, user)
@@ -344,6 +370,28 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 		if err != nil {
 			log.Errorf("List user from persistencer: %s", err)
 		}
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-a.ctx.Done():
+					return
+				case <-ticker.C:
+					a.users.Range(func(k, v interface{}) bool {
+						user := v.(*User)
+						quota := user.GetQuota()
+						if quota > 0 {
+							sent, recv := user.GetTraffic()
+							if sent+recv >= uint64(quota) {
+								a.DelUser(user.Hash)
+							}
+						}
+						return true
+					})
+				}
+			}
+		}()
 	}
 	for _, password := range cfg.Passwords {
 		hash := common.SHA224String(password)

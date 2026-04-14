@@ -17,6 +17,7 @@ type Metadata interface {
 	GetTraffic() (sent, recv uint64)
 	GetSpeedLimit() (sent, recv int)
 	GetIPLimit() int
+	GetQuota() int64
 }
 
 type TrafficMeter interface {
@@ -55,6 +56,7 @@ type Authenticator interface {
 	SetUserTraffic(hash string, sent, recv uint64) error
 	SetUserSpeedLimit(hash string, send, recv int) error
 	SetUserIPLimit(hash string, limit int) error
+	SetUserQuota(hash string, quota int64) error
 	ListUsers() []User
 }
 

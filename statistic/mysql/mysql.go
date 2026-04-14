@@ -47,7 +47,7 @@ func (a *Authenticator) updater() {
 		log.Info("buffered data has been written into the database")
 
 		// update memory
-		rows, err := a.db.Query("SELECT password,quota,download,upload FROM users")
+		rows, err := a.db.Query("SELECT password,quota,download,upload,speed_limit_up,speed_limit_down,ip_limit FROM users")
 		if err != nil || rows.Err() != nil {
 			log.Error(common.NewError("failed to pull data from the database").Base(err))
 			time.Sleep(a.updateDuration)
@@ -57,7 +57,8 @@ func (a *Authenticator) updater() {
 		for rows.Next() {
 			var hash string
 			var quota, download, upload int64
-			err := rows.Scan(&hash, &quota, &download, &upload)
+			var speedLimitUp, speedLimitDown, ipLimit int
+			err := rows.Scan(&hash, &quota, &download, &upload, &speedLimitUp, &speedLimitDown, &ipLimit)
 			if err != nil {
 				log.Error(common.NewError("failed to obtain data from the query result").Base(err))
 				break
@@ -65,6 +66,8 @@ func (a *Authenticator) updater() {
 			userMap[hash] = true
 			if download+upload < quota || quota < 0 {
 				a.AddUser(hash)
+				a.Authenticator.SetUserSpeedLimit(hash, speedLimitUp, speedLimitDown)
+				a.Authenticator.SetUserIPLimit(hash, ipLimit)
 			} else {
 				a.DelUser(hash)
 			}
@@ -82,6 +85,33 @@ func (a *Authenticator) updater() {
 			return
 		}
 	}
+}
+
+func (a *Authenticator) SetUserSpeedLimit(hash string, send, recv int) error {
+	err := a.Authenticator.SetUserSpeedLimit(hash, send, recv)
+	_, dbErr := a.db.Exec("UPDATE users SET speed_limit_up=?, speed_limit_down=? WHERE password=?", send, recv, hash)
+	if dbErr != nil {
+		log.Error(common.NewError("failed to update speed limit for user").Base(dbErr))
+	}
+	return err
+}
+
+func (a *Authenticator) SetUserIPLimit(hash string, limit int) error {
+	err := a.Authenticator.SetUserIPLimit(hash, limit)
+	_, dbErr := a.db.Exec("UPDATE users SET ip_limit=? WHERE password=?", limit, hash)
+	if dbErr != nil {
+		log.Error(common.NewError("failed to update ip limit for user").Base(dbErr))
+	}
+	return err
+}
+
+func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
+	err := a.Authenticator.SetUserQuota(hash, quota)
+	_, dbErr := a.db.Exec("UPDATE users SET quota=? WHERE password=?", quota, hash)
+	if dbErr != nil {
+		log.Error(common.NewError("failed to update quota for user").Base(dbErr))
+	}
+	return err
 }
 
 func connectDatabase(driverName, username, password, ip string, port int, dbName string) (*sql.DB, error) {

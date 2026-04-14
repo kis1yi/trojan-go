@@ -43,6 +43,7 @@ func (p *Persistencer) SaveUser(u statistic.Metadata) error {
 		MaxIPNum:  u.GetIPLimit(),
 		SendLimit: ls,
 		RecvLimit: lr,
+		Quota:     u.GetQuota(),
 		Sent:      make([]byte, 8),
 		Recv:      make([]byte, 8),
 	}
