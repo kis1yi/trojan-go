@@ -15,6 +15,14 @@ linters:
   exclusions:
     paths:
       - \.pb\.go$
+  settings:
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/kis1yi/trojan-go
+            - github.com/DATA-DOG/go-sqlmock
 
 formatters:
   enable:
