@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"testing"
@@ -141,4 +142,72 @@ func BenchmarkMemoryUsage(b *testing.B) {
 
 	b.ReportMetric(float64(m2.Alloc-m1.Alloc)/1024/1024, "MiB(Alloc)")
 	b.ReportMetric(float64(m2.TotalAlloc-m1.TotalAlloc)/1024/1024, "MiB(TotalAlloc)")
+}
+
+// TestMemoryQuotaRoundtrip verifies that SetUserQuota and GetQuota work
+// correctly for both positive and negative (unlimited) quota values.
+func TestMemoryQuotaRoundtrip(t *testing.T) {
+	cfg := &Config{Passwords: nil}
+	ctx := config.WithConfig(context.Background(), Name, cfg)
+	auth, err := NewAuthenticator(ctx)
+	common.Must(err)
+	defer auth.Close()
+
+	common.Must(auth.AddUser("quotauser"))
+	common.Must(auth.SetUserQuota("quotauser", 5000))
+	_, user := auth.AuthUser("quotauser")
+	if user.GetQuota() != 5000 {
+		t.Fatalf("expected quota 5000, got %d", user.GetQuota())
+	}
+
+	// Negative quota means unlimited.
+	common.Must(auth.SetUserQuota("quotauser", -1))
+	if user.GetQuota() != -1 {
+		t.Fatalf("expected quota -1 (unlimited), got %d", user.GetQuota())
+	}
+}
+
+// TestMemoryQuotaEnforcementAndUnlimited exercises the quota enforcement
+// goroutine that runs when a SQLite persistencer is configured. It verifies
+// that a user whose traffic has exceeded a positive quota is removed, while a
+// user with unlimited quota (quota < 0) is kept even with very high traffic.
+//
+// The enforcement goroutine fires every 10 seconds, so this test waits 11
+// seconds for the first tick to complete.
+func TestMemoryQuotaEnforcementAndUnlimited(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "quota_test.db")
+	cfg := &Config{
+		Passwords: nil,
+		Sqlite:    dbPath,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mctx := config.WithConfig(ctx, Name, cfg)
+	auth, err := NewAuthenticator(mctx)
+	common.Must(err)
+	defer auth.Close()
+
+	// User that will exceed its quota.
+	common.Must(auth.AddUser("over_quota"))
+	common.Must(auth.SetUserQuota("over_quota", 1000))
+	_, overUser := auth.AuthUser("over_quota")
+	overUser.AddSentTraffic(600)
+	overUser.AddRecvTraffic(500) // total = 1100 > 1000
+
+	// User with unlimited quota (negative value).
+	common.Must(auth.AddUser("unlimited"))
+	common.Must(auth.SetUserQuota("unlimited", -1))
+	_, unlimitedUser := auth.AuthUser("unlimited")
+	unlimitedUser.AddSentTraffic(1000000)
+	unlimitedUser.AddRecvTraffic(1000000)
+
+	// Wait for the first enforcement tick (10 s interval + 1 s buffer).
+	time.Sleep(11 * time.Second)
+
+	if valid, _ := auth.AuthUser("over_quota"); valid {
+		t.Fatal("over_quota user should have been removed by quota enforcement")
+	}
+	if valid, _ := auth.AuthUser("unlimited"); !valid {
+		t.Fatal("unlimited user should still be present")
+	}
 }

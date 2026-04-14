@@ -258,6 +258,111 @@ func TestTLSECC(t *testing.T) {
 	conn.Close()
 }
 
+// TestServerAPIQuota verifies that quota values are propagated correctly
+// through the gRPC API: SetUsers (Add with quota, Modify quota), ListUsers
+// (returns quota), and GetUsers (returns quota).
+func TestServerAPIQuota(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = config.WithConfig(ctx, memory.Name, &memory.Config{Passwords: []string{}})
+	port := common.PickPort("tcp", "127.0.0.1")
+	ctx = config.WithConfig(ctx, Name, &Config{
+		APIConfig{
+			Enabled: true,
+			APIHost: "127.0.0.1",
+			APIPort: port,
+		},
+	})
+	auth, err := memory.NewAuthenticator(ctx)
+	common.Must(err)
+	go RunServerAPI(ctx, auth)
+	time.Sleep(time.Second * 3)
+
+	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port), grpc.WithInsecure())
+	common.Must(err)
+	defer conn.Close()
+	client := NewTrojanServerServiceClient(conn)
+
+	// Add a user with a quota value.
+	setStream, err := client.SetUsers(ctx)
+	common.Must(err)
+	err = setStream.Send(&SetUsersRequest{
+		Status: &UserStatus{
+			User:  &User{Hash: "quotahash"},
+			Quota: 5000,
+		},
+		Operation: SetUsersRequest_Add,
+	})
+	common.Must(err)
+	addResp, err := setStream.Recv()
+	if err != nil || !addResp.Success {
+		t.Fatalf("SetUsers Add with quota failed: err=%v success=%v", err, addResp.GetSuccess())
+	}
+
+	// ListUsers should include the quota field.
+	listStream, err := client.ListUsers(ctx, &ListUsersRequest{})
+	common.Must(err)
+	foundInList := false
+	for {
+		listResp, err := listStream.Recv()
+		if err != nil {
+			break
+		}
+		if listResp.Status.User.Hash == "quotahash" {
+			foundInList = true
+			if listResp.Status.Quota != 5000 {
+				t.Fatalf("ListUsers: expected quota 5000, got %d", listResp.Status.Quota)
+			}
+		}
+	}
+	if !foundInList {
+		t.Fatal("quotahash not found in ListUsers response")
+	}
+
+	// GetUsers should also return the quota field.
+	getStream, err := client.GetUsers(ctx)
+	common.Must(err)
+	err = getStream.Send(&GetUsersRequest{User: &User{Hash: "quotahash"}})
+	common.Must(err)
+	getResp, err := getStream.Recv()
+	if err != nil {
+		t.Fatalf("GetUsers: %v", err)
+	}
+	if getResp.Status.Quota != 5000 {
+		t.Fatalf("GetUsers: expected quota 5000, got %d", getResp.Status.Quota)
+	}
+	getStream.CloseSend()
+
+	// Modify the quota via SetUsers.
+	err = setStream.Send(&SetUsersRequest{
+		Status: &UserStatus{
+			User:  &User{Hash: "quotahash"},
+			Quota: 9999,
+		},
+		Operation: SetUsersRequest_Modify,
+	})
+	common.Must(err)
+	modResp, err := setStream.Recv()
+	if err != nil || !modResp.Success {
+		t.Fatalf("SetUsers Modify quota failed: err=%v success=%v", err, modResp.GetSuccess())
+	}
+	setStream.CloseSend()
+
+	// Verify the updated quota via GetUsers.
+	getStream2, err := client.GetUsers(ctx)
+	common.Must(err)
+	err = getStream2.Send(&GetUsersRequest{User: &User{Hash: "quotahash"}})
+	common.Must(err)
+	getResp2, err := getStream2.Recv()
+	if err != nil {
+		t.Fatalf("GetUsers after Modify: %v", err)
+	}
+	if getResp2.Status.Quota != 9999 {
+		t.Fatalf("GetUsers after Modify: expected quota 9999, got %d", getResp2.Status.Quota)
+	}
+	getStream2.CloseSend()
+}
+
 var serverRSA2048Cert = `
 -----BEGIN CERTIFICATE-----
 MIIC5TCCAc2gAwIBAgIJAJqNVe6g/10vMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNV
