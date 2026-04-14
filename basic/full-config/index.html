@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="2832"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="2950"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -380,10 +380,19 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     quota <span style="color:#66d9ef">BIGINT</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
     download <span style="color:#66d9ef">BIGINT</span> <span style="color:#66d9ef">UNSIGNED</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
     upload <span style="color:#66d9ef">BIGINT</span> <span style="color:#66d9ef">UNSIGNED</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
+    speed_limit_up <span style="color:#66d9ef">BIGINT</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
+    speed_limit_down <span style="color:#66d9ef">BIGINT</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
+    ip_limit <span style="color:#66d9ef">INT</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,
     <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span> (id),
     <span style="color:#66d9ef">INDEX</span> (password)
 );
-</code></pre></div><h3 id="forward_proxy-upstream-proxy-options"><code>forward_proxy</code> Upstream Proxy Options</h3>
+</code></pre></div><p>Column descriptions for the additional fields:</p>
+<ul>
+<li><code>quota</code>: Traffic quota in bytes. Negative value means unlimited. <code>0</code> means the user is disabled (no traffic allowed). Positive value means a byte limit: if <code>download + upload &gt;= quota</code>, the server rejects the user&rsquo;s connection. (Already described above.)</li>
+<li><code>speed_limit_up</code> / <code>speed_limit_down</code>: Per-user upload and download speed limits in bytes/sec. <code>0</code> or a negative value means no limit. Trojan-go reads these values on each polling cycle (<code>check_rate</code>) and applies them to connected users in real time.</li>
+<li><code>ip_limit</code>: Maximum number of concurrent IP connections for the user. <code>0</code> or a negative value means no limit.</li>
+</ul>
+<h3 id="forward_proxy-upstream-proxy-options"><code>forward_proxy</code> Upstream Proxy Options</h3>
 <p>The upstream proxy option allows using another proxy to carry trojan-go&rsquo;s traffic.</p>
 <p><code>enabled</code> whether to enable the upstream proxy (socks5).</p>
 <p><code>proxy_addr</code> the host address of the upstream proxy.</p>
