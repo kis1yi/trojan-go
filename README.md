@@ -32,7 +32,7 @@ Trojan-Go is compatible with most features of the original Trojan, including but
 - MySQL user permission authentication
 - Per-user speed limits and IP limits persisted in MySQL, polled and applied at runtime
 - User traffic statistics and quota limits
-- Per-user quota management via gRPC API
+- Per-user quota management via CLI and gRPC API
 
 Additionally, Trojan-Go also implements more efficient and easy-to-use features:
 

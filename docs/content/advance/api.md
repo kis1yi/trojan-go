@@ -109,13 +109,20 @@ Below are some examples:
     ./trojan-go -api-addr 127.0.0.1:10000 -api set -modify-profile -target-password password \
         -ip-limit 3 \
         -upload-speed-limit 5242880 \
-        -download-speed-limit 5242880
+        -download-speed-limit 5242880 \
+        -quota 10737418240
     ```
 
-    This command limits the upload and download speed of the user with password "password" to 5 MiB/s, and limits the number of simultaneously connected IPs to 3. Note that 5242880 here is in bytes. If 0 or a negative number is entered, it means no limit.
+    This command limits the upload and download speed of the user with password "password" to 5 MiB/s, limits the number of simultaneously connected IPs to 3, and sets the traffic quota to 10 GiB (10737418240 bytes). Note that speed values are in bytes per second. If 0 or a negative number is entered for speed or IP limit, it means no limit.
 
 6. Manage a user's quota
 
-    Quota can be read from the `quota` field in the `get` or `list` response. To set or modify quota, use the gRPC API directly (for example, via a custom gRPC client or the Trojan-Go API library). A dedicated CLI flag (`-quota`) is not yet available in the `trojan-go` command-line tool.
+    Quota can be read from the `quota` field in the `get` or `list` response. To set or modify a user's quota via the CLI:
+
+    ```shell
+    ./trojan-go -api-addr 127.0.0.1:10000 -api set -modify-profile -target-password password -quota 10737418240
+    ```
+
+    This sets the quota for the user with password "password" to 10 GiB (10737418240 bytes).
 
     Quota semantics: negative = unlimited, `0` = user disabled (no traffic allowed), positive = byte limit (user is blocked once `download + upload >= quota`).
