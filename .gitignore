@@ -24,3 +24,7 @@ build/
 *.dat
 trojan-go
 AGENTS.md
+.github/agents
+.github/apm-guides
+.github/prompts
+.github/skills
