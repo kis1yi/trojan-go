@@ -30,7 +30,9 @@ Trojan-Go is compatible with most features of the original Trojan, including but
 - Mechanisms against GFW passive detection / active probing
 - MySQL data persistence
 - MySQL user permission authentication
+- Per-user speed limits and IP limits persisted in MySQL, polled and applied at runtime
 - User traffic statistics and quota limits
+- Per-user quota management via gRPC API
 
 Additionally, Trojan-Go also implements more efficient and easy-to-use features:
 

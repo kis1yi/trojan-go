@@ -64,10 +64,10 @@ Below are some examples:
     All user information will be exported in JSON format, including the number of online IPs, real-time speed, total upload and download traffic, etc. Below is an example of a returned result:
 
     ```json
-    [{"user":{"hash":"d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01"},"status":{"traffic_total":{"upload_traffic":36393,"download_traffic":186478},"speed_current":{"upload_speed":25210,"download_speed":72384},"speed_limit":{"upload_speed":5242880,"download_speed":5242880},"ip_limit":50}}]
+    [{"user":{"hash":"d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01"},"status":{"traffic_total":{"upload_traffic":36393,"download_traffic":186478},"speed_current":{"upload_speed":25210,"download_speed":72384},"speed_limit":{"upload_speed":5242880,"download_speed":5242880},"ip_limit":50,"quota":10737418240}}]
     ```
 
-    Traffic units are all bytes.
+    Traffic units are all bytes. `quota` is the traffic quota in bytes (negative = unlimited, 0 = disabled, positive = byte limit).
 
 2. Get a user's information
 
@@ -88,7 +88,7 @@ Below are some examples:
     The user's information will be exported in JSON format, similar to the list command. Below is an example of a returned result:
 
     ```json
-    {"user":{"hash":"d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01"},"status":{"traffic_total":{"upload_traffic":36393,"download_traffic":186478},"speed_current":{"upload_speed":25210,"download_speed":72384},"speed_limit":{"upload_speed":5242880,"download_speed":5242880},"ip_limit":50}}
+    {"user":{"hash":"d63dc919e201d7bc4c825630d2cf25fdc93d4b2f0d46706d29038d01"},"status":{"traffic_total":{"upload_traffic":36393,"download_traffic":186478},"speed_current":{"upload_speed":25210,"download_speed":72384},"speed_limit":{"upload_speed":5242880,"download_speed":5242880},"ip_limit":50,"quota":10737418240}}
     ```
 
 3. Add a user
@@ -113,3 +113,9 @@ Below are some examples:
     ```
 
     This command limits the upload and download speed of the user with password "password" to 5 MiB/s, and limits the number of simultaneously connected IPs to 3. Note that 5242880 here is in bytes. If 0 or a negative number is entered, it means no limit.
+
+6. Manage a user's quota
+
+    Quota can be read from the `quota` field in the `get` or `list` response. To set or modify quota, use the gRPC API directly (for example, via a custom gRPC client or the Trojan-Go API library). A dedicated CLI flag (`-quota`) is not yet available in the `trojan-go` command-line tool.
+
+    Quota semantics: negative = unlimited, `0` = user disabled (no traffic allowed), positive = byte limit (user is blocked once `download + upload >= quota`).

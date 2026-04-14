@@ -334,10 +334,19 @@ CREATE TABLE users (
     quota BIGINT NOT NULL DEFAULT 0,
     download BIGINT UNSIGNED NOT NULL DEFAULT 0,
     upload BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    speed_limit_up BIGINT NOT NULL DEFAULT 0,
+    speed_limit_down BIGINT NOT NULL DEFAULT 0,
+    ip_limit INT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     INDEX (password)
 );
 ```
+
+Column descriptions for the additional fields:
+
+- `quota`: Traffic quota in bytes. Negative value means unlimited. `0` means the user is disabled (no traffic allowed). Positive value means a byte limit: if `download + upload >= quota`, the server rejects the user's connection. (Already described above.)
+- `speed_limit_up` / `speed_limit_down`: Per-user upload and download speed limits in bytes/sec. `0` or a negative value means no limit. Trojan-go reads these values on each polling cycle (`check_rate`) and applies them to connected users in real time.
+- `ip_limit`: Maximum number of concurrent IP connections for the user. `0` or a negative value means no limit.
 
 ### ```forward_proxy``` Upstream Proxy Options
 
