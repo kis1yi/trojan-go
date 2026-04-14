@@ -56,7 +56,7 @@ func (c *OutboundConn) WriteHeader(payload []byte) (bool, error) {
 		crlf := []byte{0x0d, 0x0a}
 		buf.Write([]byte(hash))
 		buf.Write(crlf)
-		c.metadata.WriteTo(buf)
+		c.metadata.Marshal(buf)
 		buf.Write(crlf)
 		if payload != nil {
 			buf.Write(payload)

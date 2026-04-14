@@ -23,7 +23,7 @@ func (c *Conn) Metadata() *tunnel.Metadata {
 func (c *Conn) Write(payload []byte) (int, error) {
 	if c.isOutbound && !c.headerWritten {
 		buf := bytes.NewBuffer(make([]byte, 0, 4096))
-		c.metadata.WriteTo(buf)
+		c.metadata.Marshal(buf)
 		buf.Write(payload)
 		_, err := c.Conn.Write(buf.Bytes())
 		if err != nil {

@@ -18,7 +18,7 @@ type Metadata struct {
 	*Address
 }
 
-func (r *Metadata) ReadFrom(rr io.Reader) error {
+func (r *Metadata) Unmarshal(rr io.Reader) error {
 	byteBuf := [1]byte{}
 	_, err := io.ReadFull(rr, byteBuf[:])
 	if err != nil {
@@ -26,17 +26,17 @@ func (r *Metadata) ReadFrom(rr io.Reader) error {
 	}
 	r.Command = Command(byteBuf[0])
 	r.Address = new(Address)
-	err = r.Address.ReadFrom(rr)
+	err = r.Address.Unmarshal(rr)
 	if err != nil {
 		return common.NewError("failed to marshal address").Base(err)
 	}
 	return nil
 }
 
-func (r *Metadata) WriteTo(w io.Writer) error {
+func (r *Metadata) Marshal(w io.Writer) error {
 	buf := bytes.NewBuffer(make([]byte, 0, 64))
 	buf.WriteByte(byte(r.Command))
-	if err := r.Address.WriteTo(buf); err != nil {
+	if err := r.Address.Marshal(buf); err != nil {
 		return err
 	}
 	// use tcp by default
@@ -136,7 +136,7 @@ func NewAddressFromHostPort(network string, host string, port int) *Address {
 	}
 }
 
-func (a *Address) ReadFrom(r io.Reader) error {
+func (a *Address) Unmarshal(r io.Reader) error {
 	byteBuf := [1]byte{}
 	_, err := io.ReadFull(r, byteBuf[:])
 	if err != nil {
@@ -190,7 +190,7 @@ func (a *Address) ReadFrom(r io.Reader) error {
 	return nil
 }
 
-func (a *Address) WriteTo(w io.Writer) error {
+func (a *Address) Marshal(w io.Writer) error {
 	_, err := w.Write([]byte{byte(a.AddressType)})
 	if err != nil {
 		return err

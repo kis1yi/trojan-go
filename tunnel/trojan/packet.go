@@ -35,7 +35,7 @@ func (c *PacketConn) WriteTo(payload []byte, addr net.Addr) (int, error) {
 func (c *PacketConn) WriteWithMetadata(payload []byte, metadata *tunnel.Metadata) (int, error) {
 	packet := make([]byte, 0, MaxPacketSize)
 	w := bytes.NewBuffer(packet)
-	metadata.Address.WriteTo(w)
+	metadata.Address.Marshal(w)
 
 	length := len(payload)
 	lengthBuf := [2]byte{}
@@ -57,7 +57,7 @@ func (c *PacketConn) ReadWithMetadata(payload []byte) (int, *tunnel.Metadata, er
 	addr := &tunnel.Address{
 		NetworkType: "udp",
 	}
-	if err := addr.ReadFrom(c.Conn); err != nil {
+	if err := addr.Unmarshal(c.Conn); err != nil {
 		return 0, nil, common.NewError("failed to parse udp packet addr").Base(err)
 	}
 	lengthBuf := [2]byte{}

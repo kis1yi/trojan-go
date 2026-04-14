@@ -39,7 +39,7 @@ func (s *Server) acceptLoop() {
 			continue
 		}
 		metadata := new(tunnel.Metadata)
-		if err := metadata.ReadFrom(conn); err != nil {
+		if err := metadata.Unmarshal(conn); err != nil {
 			log.Error(common.NewError("simplesocks server faield to read header").Base(err))
 			conn.Close()
 			continue

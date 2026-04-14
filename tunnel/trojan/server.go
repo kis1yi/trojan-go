@@ -97,7 +97,7 @@ func (c *InboundConn) Auth() error {
 	}
 
 	c.metadata = &tunnel.Metadata{}
-	if err := c.metadata.ReadFrom(c.Conn); err != nil {
+	if err := c.metadata.Unmarshal(c.Conn); err != nil {
 		return err
 	}
 

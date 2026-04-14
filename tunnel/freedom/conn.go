@@ -66,7 +66,7 @@ type SocksPacketConn struct {
 func (c *SocksPacketConn) WriteWithMetadata(payload []byte, metadata *tunnel.Metadata) (int, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, MaxPacketSize))
 	buf.Write([]byte{0, 0, 0}) // RSV, FRAG
-	common.Must(metadata.Address.WriteTo(buf))
+	common.Must(metadata.Address.Marshal(buf))
 	buf.Write(payload)
 	_, err := c.PacketConn.WriteTo(buf.Bytes(), c.socksAddr)
 	if err != nil {
@@ -85,7 +85,7 @@ func (c *SocksPacketConn) ReadWithMetadata(payload []byte) (int, *tunnel.Metadat
 	log.Debug("recv udp packet from " + from.String())
 	addr := new(tunnel.Address)
 	r := bytes.NewBuffer(buf[3:n])
-	if err := addr.ReadFrom(r); err != nil {
+	if err := addr.Unmarshal(r); err != nil {
 		return 0, nil, common.NewError("socks5 failed to parse addr in the packet").Base(err)
 	}
 	length, err := r.Read(payload)
