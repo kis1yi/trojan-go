@@ -125,8 +125,9 @@ outbound:
 }
 
 func TestCustom2(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
-	socksPort := common.PickPort("tcp", "127.0.0.1")
+	t.Setenv("SHADOWSOCKS_SF_CAPACITY", "-1")
+	serverPort := common.PickDualPort("127.0.0.1")
+	socksPort := common.PickDualPort("127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: custom
 log-level: 0

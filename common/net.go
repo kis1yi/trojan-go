@@ -65,6 +65,25 @@ func PickPort(network string, host string) int {
 	return 0
 }
 
+func PickDualPort(host string) int {
+	for retry := 0; retry < 16; retry++ {
+		l, err := net.Listen("tcp", host+":0")
+		if err != nil {
+			continue
+		}
+		_, port, _ := net.SplitHostPort(l.Addr().String())
+		l.Close()
+		uc, err := net.ListenPacket("udp", host+":"+port)
+		if err != nil {
+			continue
+		}
+		uc.Close()
+		p, _ := strconv.Atoi(port)
+		return p
+	}
+	panic("failed to pick a dual TCP/UDP port")
+}
+
 func WriteAllBytes(writer io.Writer, payload []byte) error {
 	for len(payload) > 0 {
 		n, err := writer.Write(payload)

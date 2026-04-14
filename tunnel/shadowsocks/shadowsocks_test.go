@@ -17,6 +17,12 @@ import (
 )
 
 func TestShadowsocks(t *testing.T) {
+	// Disable the go-shadowsocks2 global salt replay filter.
+	// In-process tests share the singleton BloomRing, so the client's
+	// AddSalt is immediately visible to the server's CheckSalt, causing
+	// a spurious ErrRepeatedSalt ("invalid aead payload").
+	t.Setenv("SHADOWSOCKS_SF_CAPACITY", "-1")
+
 	p, err := strconv.ParseInt(util.HTTPPort, 10, 32)
 	common.Must(err)
 
@@ -56,19 +62,30 @@ func TestShadowsocks(t *testing.T) {
 	go func() {
 		var err error
 		conn1, err = c.DialConn(nil, nil)
-		common.Must(err)
+		if err != nil {
+			t.Error(err)
+			wg.Done()
+			return
+		}
 		conn1.Write(util.GeneratePayload(1024))
 		wg.Done()
 	}()
 	go func() {
 		var err error
 		conn2, err = s.AcceptConn(nil)
-		common.Must(err)
+		if err != nil {
+			t.Error(err)
+			wg.Done()
+			return
+		}
 		buf := [1024]byte{}
 		conn2.Read(buf[:])
 		wg.Done()
 	}()
 	wg.Wait()
+	if t.Failed() {
+		return
+	}
 	if !util.CheckConn(conn1, conn2) {
 		t.Fail()
 	}
