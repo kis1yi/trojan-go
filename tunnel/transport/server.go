@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	proxyproto "github.com/pires/go-proxyproto"
+
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
@@ -158,6 +160,11 @@ func NewServer(ctx context.Context, _ tunnel.Server) (*Server, error) {
 	tcpListener, err := net.Listen("tcp", listenAddress.String())
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.TCP.ProxyProtocol {
+		tcpListener = &proxyproto.Listener{Listener: tcpListener}
+		log.Info("proxy protocol enabled")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

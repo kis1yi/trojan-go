@@ -9,7 +9,12 @@ type Config struct {
 	LocalPort       int                   `json:"local_port" yaml:"local-port"`
 	RemoteHost      string                `json:"remote_addr" yaml:"remote-addr"`
 	RemotePort      int                   `json:"remote_port" yaml:"remote-port"`
+	TCP             TCPConfig             `json:"tcp" yaml:"tcp"`
 	TransportPlugin TransportPluginConfig `json:"transport_plugin" yaml:"transport-plugin"`
+}
+
+type TCPConfig struct {
+	ProxyProtocol bool `json:"proxy_protocol" yaml:"proxy-protocol"`
 }
 
 type TransportPluginConfig struct {
