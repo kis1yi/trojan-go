@@ -107,6 +107,51 @@ The Trojan configuration is the same as usual. Here is an example with irrelevan
 
 Tip: If you need separate independent Trojan server instances for different paths on the endpoint host (e.g., for separate billing services), you can configure another SNI proxy on the endpoint host and forward traffic to different local Trojan server listening ports respectively. Since the configuration is essentially the same as the process described above, it will not be repeated here.
 
+## Preserving the Real Client IP (PROXY Protocol)
+
+When trojan-go runs behind an nginx SNI proxy, all incoming connections appear to originate from `127.0.0.1` (or whichever address nginx connects from). This makes server-side features such as `ip_limit` ineffective, because every client is seen as the same IP.
+
+To solve this, enable the **PROXY protocol**. nginx will prepend a PROXY protocol header containing the real client IP to each proxied connection, and trojan-go will read it.
+
+### nginx configuration
+
+Add `proxy_protocol on;` to the `server` block:
+
+```nginx
+stream {
+  map $ssl_preread_server_name $name {
+    a-c.example.com   c.example.com;
+    a-d.example.com   d.example.com;
+    default           localhost:4000;
+  }
+
+  server {
+    listen      443;
+    proxy_pass  $name;
+    proxy_protocol on;
+    ssl_preread on;
+  }
+}
+```
+
+### trojan-go configuration
+
+Add `proxy_protocol` to the `tcp` section in the server config:
+
+```json
+{
+  "run_type": "server",
+  "local_addr": "127.0.0.1",
+  "local_port": 8443,
+  ...
+  "tcp": {
+    "proxy_protocol": true
+  }
+}
+```
+
+> **Warning:** Only enable `proxy_protocol` when all connections to trojan-go come from a trusted proxy that sends PROXY protocol headers. If trojan-go is also exposed directly to the internet, untrusted clients could forge PROXY protocol headers to spoof their IP address.
+
 ## Summary
 
 Through the configuration method described above, we can achieve multi-entry multi-exit multi-stage Trojan traffic forwarding on a single port.

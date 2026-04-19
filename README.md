@@ -7,6 +7,8 @@
 - [x] Support specifying forwarding buffer size and count limits for better memory usage control
 - [x] Fixed the issue where server-side upload rate limiting is ineffective
 - [x] Fix the issue where blocking during connection forwarding may cause goroutine leaks
+- [x] Fixed ip_limit enforcement: race conditions, proper reference counting for concurrent connections from the same IP
+- [x] Added PROXY protocol (v1/v2) support, enabling correct client IP detection when behind nginx or other reverse proxies
 
 # Trojan-Go [![Go Report Card](https://goreportcard.com/badge/github.com/kis1yi/trojan-go)](https://goreportcard.com/report/github.com/kis1yi/trojan-go) [![Downloads](https://img.shields.io/github/downloads/kis1yi/trojan-go/total?label=downloads&logo=github&style=flat-square)](https://img.shields.io/github/downloads/kis1yi/trojan-go/total?label=downloads&logo=github&style=flat-square)
 

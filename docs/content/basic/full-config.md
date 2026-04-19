@@ -61,7 +61,8 @@ All other unspecified options will be filled with the values given below.
   "tcp": {
     "no_delay": true,
     "keep_alive": true,
-    "prefer_ipv4": false
+    "prefer_ipv4": false,
+    "proxy_protocol": false
   },
   "mux": {
     "enabled": false,
@@ -322,6 +323,8 @@ Since AEAD is used, trojan-go can correctly determine whether a request is valid
 `keep_alive` whether to enable TCP keepalive detection.
 
 `prefer_ipv4` whether to prefer IPv4 addresses.
+
+`proxy_protocol` (server only) whether to enable [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) (v1/v2) support. When trojan-go runs behind a reverse proxy such as nginx, all connections appear to originate from the loopback address (e.g. `127.0.0.1`), which makes features like `ip_limit` ineffective. Enabling this option allows trojan-go to read the real client IP from the PROXY protocol header sent by the upstream proxy. **Only enable this when the upstream proxy is configured to send PROXY protocol headers** (e.g. `proxy_protocol on;` in nginx stream). Accepting PROXY protocol from untrusted sources may allow IP spoofing.
 
 ### ```mysql``` Database Options
 
