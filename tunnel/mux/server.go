@@ -2,6 +2,7 @@ package mux
 
 import (
 	"context"
+	"io"
 
 	"github.com/xtaci/smux/v2"
 
@@ -48,7 +49,11 @@ func (s *Server) acceptConnWorker() {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Error(err)
+						if err == io.EOF {
+							log.Info("mux session closed")
+						} else {
+							log.Error(err)
+						}
 						return
 					}
 					select {
