@@ -31,8 +31,9 @@ type User struct {
 	recvSpeed   uint64
 	quota       int64
 	Hash        string
-	ipTable     sync.Map
-	ipNum       int32
+	ipLock      sync.Mutex
+	ipTable     map[string]struct{}
+	ipNum       int
 	MaxIPNum    int
 	limiterLock sync.RWMutex
 	SendLimiter *rate.Limiter
@@ -51,15 +52,16 @@ func (u *User) AddIP(ip string) bool {
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	_, found := u.ipTable.Load(ip)
-	if found {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
+	if _, found := u.ipTable[ip]; found {
 		return true
 	}
-	if int(u.ipNum)+1 > u.MaxIPNum {
+	if u.ipNum+1 > u.MaxIPNum {
 		return false
 	}
-	u.ipTable.Store(ip, true)
-	atomic.AddInt32(&u.ipNum, 1)
+	u.ipTable[ip] = struct{}{}
+	u.ipNum++
 	return true
 }
 
@@ -67,17 +69,20 @@ func (u *User) DelIP(ip string) bool {
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	_, found := u.ipTable.Load(ip)
-	if !found {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
+	if _, found := u.ipTable[ip]; !found {
 		return false
 	}
-	u.ipTable.Delete(ip)
-	atomic.AddInt32(&u.ipNum, -1)
+	delete(u.ipTable, ip)
+	u.ipNum--
 	return true
 }
 
 func (u *User) GetIP() int {
-	return int(u.ipNum)
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
+	return u.ipNum
 }
 
 func (u *User) setIPLimit(n int) {
@@ -228,9 +233,10 @@ func (a *Authenticator) AddUser(hash string) error {
 	}
 	ctx, cancel := context.WithCancel(a.ctx)
 	meter := &User{
-		Hash:   hash,
-		ctx:    ctx,
-		cancel: cancel,
+		Hash:    hash,
+		ipTable: make(map[string]struct{}),
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 	go meter.speedUpdater()
 	a.users.Store(hash, meter)
@@ -354,9 +360,10 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 			}
 			ctx, cancel := context.WithCancel(a.ctx)
 			user := &User{
-				Hash:   hash,
-				ctx:    ctx,
-				cancel: cancel,
+				Hash:    hash,
+				ipTable: make(map[string]struct{}),
+				ctx:     ctx,
+				cancel:  cancel,
 			}
 			user.setIPLimit(u.GetIPLimit())
 			user.SetSpeedLimit(u.GetSpeedLimit())
