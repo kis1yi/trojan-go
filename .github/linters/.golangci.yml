@@ -23,6 +23,7 @@ linters:
             - $gostd
             - github.com/kis1yi/trojan-go
             - github.com/DATA-DOG/go-sqlmock
+            - github.com/pires/go-proxyproto
             - github.com/xtaci/smux
 
 formatters:
