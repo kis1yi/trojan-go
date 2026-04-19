@@ -35,7 +35,8 @@ The complete mux configuration is as follows:
     "concurrency": 8,
     "idle_timeout": 60,
     "stream_buffer": 4194304,
-    "receive_buffer": 4194304
+    "receive_buffer": 4194304,
+    "protocol": 2
 }
 ```
 
@@ -46,3 +47,5 @@ The complete mux configuration is as follows:
 `stream_buffer` specifies the maximum buffer size in bytes per multiplexed stream (smux flow control window). The default is 4194304 (4 MB). Increasing this value allows higher throughput per stream at the cost of more memory usage. If customized, the value must match on both client and server.
 
 `receive_buffer` specifies the maximum total receive buffer size in bytes per smux session. The default is 4194304 (4 MB). This value must be greater than or equal to `stream_buffer`. If customized, the value must match on both client and server.
+
+`protocol` specifies the smux wire protocol version. Valid values are `1` and `2` (default). Protocol version 1 is compatible with the original trojan-go (p4gefau1t) and iOS clients such as Shadowrocket. Protocol version 2 adds a sliding window mechanism for improved flow control. Both client and server must use the same protocol version.

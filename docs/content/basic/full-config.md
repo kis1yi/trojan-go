@@ -68,7 +68,8 @@ All other unspecified options will be filled with the values given below.
     "concurrency": 8,
     "idle_timeout": 60,
     "stream_buffer": 4194304,
-    "receive_buffer": 4194304
+    "receive_buffer": 4194304,
+    "protocol": 2
   },
   "router": {
     "enabled": false,
@@ -213,6 +214,12 @@ Note that the significance of multiplexing is to reduce handshake latency, not t
 `concurrency` specifies the maximum number of connections a single TLS tunnel can carry, defaulting to 8. The larger this value, the lower the latency caused by TLS handshakes when many connections are concurrent, but network throughput may decrease. A negative number or 0 means all connections use only one TLS tunnel.
 
 `idle_timeout` idle timeout. Specifies how long after the TLS tunnel is idle before it is closed, in seconds. If the value is negative or 0, the TLS tunnel is closed immediately when idle.
+
+`stream_buffer` specifies the maximum buffer size in bytes per multiplexed stream (smux flow control window). The default is 4194304 (4 MB). Increasing this value allows higher throughput per stream at the cost of more memory usage. If customized, the value must match on both client and server.
+
+`receive_buffer` specifies the maximum total receive buffer size in bytes per smux session. The default is 4194304 (4 MB). This value must be greater than or equal to `stream_buffer`. If customized, the value must match on both client and server.
+
+`protocol` the smux wire protocol version (`1` or `2`, default `2`). Set to `1` for compatibility with the original trojan-go and iOS clients such as Shadowrocket. Both client and server must use the same protocol version.
 
 ### ```router``` Routing Options
 

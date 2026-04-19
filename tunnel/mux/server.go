@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/xtaci/smux/v2"
+	"github.com/xtaci/smux"
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
@@ -18,6 +18,7 @@ type Server struct {
 	connChan      chan tunnel.Conn
 	streamBuffer  int
 	receiveBuffer int
+	protocol      int
 	ctx           context.Context
 	cancel        context.CancelFunc
 }
@@ -36,6 +37,7 @@ func (s *Server) acceptConnWorker() {
 		}
 		go func(conn tunnel.Conn) {
 			smuxConfig := smux.DefaultConfig()
+			smuxConfig.Version = s.protocol
 			smuxConfig.MaxStreamBuffer = s.streamBuffer
 			smuxConfig.MaxReceiveBuffer = s.receiveBuffer
 			smuxSession, err := smux.Server(conn, smuxConfig)
@@ -96,6 +98,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 		underlay:      underlay,
 		streamBuffer:  serverConfig.Mux.StreamBuffer,
 		receiveBuffer: serverConfig.Mux.ReceiveBuffer,
+		protocol:      serverConfig.Mux.Protocol,
 		ctx:           ctx,
 		cancel:        cancel,
 		connChan:      make(chan tunnel.Conn, 32),

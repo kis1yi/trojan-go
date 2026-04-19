@@ -208,6 +208,8 @@ You can enable it by setting the `enabled` field in the client's `mux` option:
 
 The `stream_buffer` and `receive_buffer` options (default 4 MB each) control the smux flow control window size. Larger values improve per-stream throughput on high-latency links. If customized, the values must match on both client and server.
 
+The `protocol` option (default `2`) selects the smux wire protocol version. Set `protocol` to `1` for compatibility with the original trojan-go (p4gefau1t) and iOS clients such as Shadowrocket. Both client and server must use the same protocol version.
+
 Only the client needs to enable mux; the server adapts automatically. For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ### Routing Module

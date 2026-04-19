@@ -23,6 +23,7 @@ require (
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/glebarez/sqlite v1.11.0
+	github.com/xtaci/smux v1.5.57
 )
 
 require (
@@ -52,7 +53,6 @@ require (
 	github.com/mattn/go-isatty v0.0.21 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/v2fly/v2ray-core/v5 v5.49.0
-	github.com/xtaci/smux/v2 v2.1.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

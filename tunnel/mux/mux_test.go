@@ -19,6 +19,7 @@ func TestMux(t *testing.T) {
 			IdleTimeout:   60,
 			StreamBuffer:  4194304,
 			ReceiveBuffer: 4194304,
+			Protocol:      2,
 		},
 	}
 	ctx := config.WithConfig(context.Background(), Name, muxCfg)
@@ -68,6 +69,7 @@ func TestMuxCustomBuffers(t *testing.T) {
 			IdleTimeout:   60,
 			StreamBuffer:  1048576,
 			ReceiveBuffer: 2097152,
+			Protocol:      2,
 		},
 	}
 	ctx := config.WithConfig(context.Background(), Name, muxCfg)
@@ -127,6 +129,7 @@ func TestMuxDefaultBuffers(t *testing.T) {
 			IdleTimeout:   60,
 			StreamBuffer:  4194304,
 			ReceiveBuffer: 4194304,
+			Protocol:      2,
 		},
 	}
 	if muxCfg.Mux.StreamBuffer != 4194304 {
