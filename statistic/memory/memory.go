@@ -49,11 +49,11 @@ func (u *User) Close() error {
 }
 
 func (u *User) AddIP(ip string) bool {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	u.ipLock.Lock()
-	defer u.ipLock.Unlock()
 	if _, found := u.ipTable[ip]; found {
 		return true
 	}
@@ -66,11 +66,11 @@ func (u *User) AddIP(ip string) bool {
 }
 
 func (u *User) DelIP(ip string) bool {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	u.ipLock.Lock()
-	defer u.ipLock.Unlock()
 	if _, found := u.ipTable[ip]; !found {
 		return false
 	}
@@ -86,10 +86,14 @@ func (u *User) GetIP() int {
 }
 
 func (u *User) setIPLimit(n int) {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
 	u.MaxIPNum = n
 }
 
 func (u *User) GetIPLimit() int {
+	u.ipLock.Lock()
+	defer u.ipLock.Unlock()
 	return u.MaxIPNum
 }
 
