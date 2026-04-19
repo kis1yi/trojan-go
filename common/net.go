@@ -66,7 +66,7 @@ func PickPort(network string, host string) int {
 }
 
 func PickDualPort(host string) int {
-	for retry := 0; retry < 16; retry++ {
+	for retry := 0; retry < 128; retry++ {
 		l, err := net.Listen("tcp", host+":0")
 		if err != nil {
 			continue

@@ -156,7 +156,7 @@ var wg = sync.WaitGroup{}
 
 // pickDualPort returns a port available for both TCP and UDP on the given host.
 func pickDualPort(host string) int {
-	for retry := 0; retry < 16; retry++ {
+	for retry := 0; retry < 128; retry++ {
 		l, err := net.Listen("tcp", host+":0")
 		if err != nil {
 			continue

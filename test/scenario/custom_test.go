@@ -10,7 +10,7 @@ import (
 )
 
 func TestCustom1(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: custom

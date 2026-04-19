@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
@@ -101,12 +102,22 @@ func TestShadowsocks(t *testing.T) {
 	// test redirection
 	conn3, err := tcpClient.DialConn(nil, nil)
 	common.Must(err)
-	n, err := conn3.Write(util.GeneratePayload(1024))
+	// Build a payload that looks like a garbled HTTP request so the target
+	// HTTP server can parse the request line and reply with 400 instead of
+	// blocking forever waiting for '\n'.  Random bytes alone may lack a
+	// newline (~1.8 % chance for 1024 bytes), which causes the HTTP server
+	// to stall on ReadLine and deadlocks the redirector ↔ test pipeline.
+	payload := util.GeneratePayload(1024)
+	payload[len(payload)-1] = '\n'
+	n, err := conn3.Write(payload)
 	common.Must(err)
 	fmt.Println("write:", n)
 	buf := [1024]byte{}
+	conn3.SetReadDeadline(time.Now().Add(5 * time.Second))
 	n, err = conn3.Read(buf[:])
-	common.Must(err)
+	if err != nil {
+		t.Fatal("failed to read redirected response:", err)
+	}
 	fmt.Println("read:", n)
 	if !strings.Contains(string(buf[:n]), "Bad Request") {
 		t.Fail()

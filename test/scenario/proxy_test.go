@@ -133,7 +133,7 @@ func CheckClientServer(clientData, serverData string, socksPort int) (ok bool) {
 }
 
 func TestClientServerWebsocketSubTree(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: client
@@ -188,7 +188,7 @@ websocket:
 }
 
 func TestClientServerTrojanSubTree(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: client
@@ -235,7 +235,7 @@ shadowsocks:
 }
 
 func TestWebsocketDetection(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 
 	clientData := fmt.Sprintf(`
@@ -287,7 +287,7 @@ websocket:
 }
 
 func TestPluginWebsocket(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 
 	clientData := fmt.Sprintf(`
@@ -340,8 +340,8 @@ websocket:
 }
 
 func TestForward(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
-	clientPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
+	clientPort := common.PickDualPort("127.0.0.1")
 	_, targetPort, _ := net.SplitHostPort(util.EchoAddr)
 	clientData := fmt.Sprintf(`
 run-type: forward
@@ -432,7 +432,7 @@ shadowsocks:
 }
 
 func TestLeak(t *testing.T) {
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: client
@@ -506,7 +506,7 @@ func BenchmarkClientServer(b *testing.B) {
 	go func() {
 		fmt.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-	serverPort := common.PickPort("tcp", "127.0.0.1")
+	serverPort := common.PickDualPort("127.0.0.1")
 	socksPort := common.PickPort("tcp", "127.0.0.1")
 	clientData := fmt.Sprintf(`
 run-type: client
