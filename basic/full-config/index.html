@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="2954"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="3079"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -140,7 +140,8 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;concurrency&#34;</span>: <span style="color:#ae81ff">8</span>,
     <span style="color:#f92672">&#34;idle_timeout&#34;</span>: <span style="color:#ae81ff">60</span>,
     <span style="color:#f92672">&#34;stream_buffer&#34;</span>: <span style="color:#ae81ff">4194304</span>,
-    <span style="color:#f92672">&#34;receive_buffer&#34;</span>: <span style="color:#ae81ff">4194304</span>
+    <span style="color:#f92672">&#34;receive_buffer&#34;</span>: <span style="color:#ae81ff">4194304</span>,
+    <span style="color:#f92672">&#34;protocol&#34;</span>: <span style="color:#ae81ff">2</span>
   },
   <span style="color:#f92672">&#34;router&#34;</span>: {
     <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
@@ -268,6 +269,9 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>enabled</code> whether to enable multiplexing.</p>
 <p><code>concurrency</code> specifies the maximum number of connections a single TLS tunnel can carry, defaulting to 8. The larger this value, the lower the latency caused by TLS handshakes when many connections are concurrent, but network throughput may decrease. A negative number or 0 means all connections use only one TLS tunnel.</p>
 <p><code>idle_timeout</code> idle timeout. Specifies how long after the TLS tunnel is idle before it is closed, in seconds. If the value is negative or 0, the TLS tunnel is closed immediately when idle.</p>
+<p><code>stream_buffer</code> specifies the maximum buffer size in bytes per multiplexed stream (smux flow control window). The default is 4194304 (4 MB). Increasing this value allows higher throughput per stream at the cost of more memory usage. If customized, the value must match on both client and server.</p>
+<p><code>receive_buffer</code> specifies the maximum total receive buffer size in bytes per smux session. The default is 4194304 (4 MB). This value must be greater than or equal to <code>stream_buffer</code>. If customized, the value must match on both client and server.</p>
+<p><code>protocol</code> the smux wire protocol version (<code>1</code> or <code>2</code>, default <code>2</code>). Set to <code>1</code> for compatibility with the original trojan-go and iOS clients such as Shadowrocket. Both client and server must use the same protocol version.</p>
 <h3 id="router-routing-options"><code>router</code> Routing Options</h3>
 <p>The routing function is a trojan-go feature. trojan-go has three routing policies:</p>
 <ul>
