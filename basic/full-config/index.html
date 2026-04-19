@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="3079"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="3169"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -133,7 +133,8 @@ Trojan-Go supports the more human-friendly YAML syntax.">
   <span style="color:#f92672">&#34;tcp&#34;</span>: {
     <span style="color:#f92672">&#34;no_delay&#34;</span>: <span style="color:#66d9ef">true</span>,
     <span style="color:#f92672">&#34;keep_alive&#34;</span>: <span style="color:#66d9ef">true</span>,
-    <span style="color:#f92672">&#34;prefer_ipv4&#34;</span>: <span style="color:#66d9ef">false</span>
+    <span style="color:#f92672">&#34;prefer_ipv4&#34;</span>: <span style="color:#66d9ef">false</span>,
+    <span style="color:#f92672">&#34;proxy_protocol&#34;</span>: <span style="color:#66d9ef">false</span>
   },
   <span style="color:#f92672">&#34;mux&#34;</span>: {
     <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
@@ -373,6 +374,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>no_delay</code> whether TCP packets are sent immediately without waiting for the buffer to fill.</p>
 <p><code>keep_alive</code> whether to enable TCP keepalive detection.</p>
 <p><code>prefer_ipv4</code> whether to prefer IPv4 addresses.</p>
+<p><code>proxy_protocol</code> (server only) whether to enable <a href="https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt">PROXY protocol</a> (v1/v2) support. When trojan-go runs behind a reverse proxy such as nginx, all connections appear to originate from the loopback address (e.g. <code>127.0.0.1</code>), which makes features like <code>ip_limit</code> ineffective. Enabling this option allows trojan-go to read the real client IP from the PROXY protocol header sent by the upstream proxy. <strong>Only enable this when the upstream proxy is configured to send PROXY protocol headers</strong> (e.g. <code>proxy_protocol on;</code> in nginx stream). Accepting PROXY protocol from untrusted sources may allow IP spoofing.</p>
 <h3 id="mysql-database-options"><code>mysql</code> Database Options</h3>
 <p>trojan-go is compatible with Trojan&rsquo;s MySQL-based user management, but the more recommended approach is to use the API.</p>
 <p><code>enabled</code> indicates whether to use a MySQL database for user authentication.</p>

@@ -34,7 +34,7 @@ Required Tools and Other Preparations  Relay machine: nginx 1.11.5 or above Endp
 <meta itemprop="description" content="Introduction Trojan is a tool that encrypts data transmission by encapsulating it in TLS. Taking advantage of its TLS characteristics, we can use an SNI proxy to achieve traffic splitting and relay on the same host port for different paths.
 Required Tools and Other Preparations  Relay machine: nginx 1.11.5 or above Endpoint machine: trojan server (no version requirement)  Configuration Method For ease of explanation, two relay hosts and two endpoint hosts are used here.">
 
-<meta itemprop="wordCount" content="633"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="807"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -126,6 +126,39 @@ The Trojan configuration is the same as usual. Here is an example with irrelevan
     <span style="color:#960050;background-color:#1e0010">...</span>
 }
 </code></pre></div><p>Tip: If you need separate independent Trojan server instances for different paths on the endpoint host (e.g., for separate billing services), you can configure another SNI proxy on the endpoint host and forward traffic to different local Trojan server listening ports respectively. Since the configuration is essentially the same as the process described above, it will not be repeated here.</p>
+<h2 id="preserving-the-real-client-ip-proxy-protocol">Preserving the Real Client IP (PROXY Protocol)</h2>
+<p>When trojan-go runs behind an nginx SNI proxy, all incoming connections appear to originate from <code>127.0.0.1</code> (or whichever address nginx connects from). This makes server-side features such as <code>ip_limit</code> ineffective, because every client is seen as the same IP.</p>
+<p>To solve this, enable the <strong>PROXY protocol</strong>. nginx will prepend a PROXY protocol header containing the real client IP to each proxied connection, and trojan-go will read it.</p>
+<h3 id="nginx-configuration">nginx configuration</h3>
+<p>Add <code>proxy_protocol on;</code> to the <code>server</code> block:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-nginx" data-lang="nginx"><span style="color:#66d9ef">stream</span> {
+  <span style="color:#f92672">map</span> $ssl_preread_server_name $name {
+    <span style="color:#f92672">a-c.example.com</span>   <span style="color:#e6db74">c.example.com</span>;
+    <span style="color:#f92672">a-d.example.com</span>   <span style="color:#e6db74">d.example.com</span>;
+    <span style="color:#f92672">default</span>           localhost:<span style="color:#ae81ff">4000</span>;
+  }
+
+  <span style="color:#f92672">server</span> {
+    <span style="color:#f92672">listen</span>      <span style="color:#ae81ff">443</span>;
+    <span style="color:#f92672">proxy_pass</span>  $name;
+    <span style="color:#f92672">proxy_protocol</span> <span style="color:#66d9ef">on</span>;
+    <span style="color:#f92672">ssl_preread</span> <span style="color:#66d9ef">on</span>;
+  }
+}
+</code></pre></div><h3 id="trojan-go-configuration">trojan-go configuration</h3>
+<p>Add <code>proxy_protocol</code> to the <code>tcp</code> section in the server config:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;run_type&#34;</span>: <span style="color:#e6db74">&#34;server&#34;</span>,
+  <span style="color:#f92672">&#34;local_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
+  <span style="color:#f92672">&#34;local_port&#34;</span>: <span style="color:#ae81ff">8443</span>,
+  <span style="color:#960050;background-color:#1e0010">...</span>
+  <span style="color:#f92672">&#34;tcp&#34;</span>: {
+    <span style="color:#f92672">&#34;proxy_protocol&#34;</span>: <span style="color:#66d9ef">true</span>
+  }
+}
+</code></pre></div><blockquote>
+<p><strong>Warning:</strong> Only enable <code>proxy_protocol</code> when all connections to trojan-go come from a trusted proxy that sends PROXY protocol headers. If trojan-go is also exposed directly to the internet, untrusted clients could forge PROXY protocol headers to spoof their IP address.</p>
+</blockquote>
 <h2 id="summary">Summary</h2>
 <p>Through the configuration method described above, we can achieve multi-entry multi-exit multi-stage Trojan traffic forwarding on a single port.
 For multi-stage relaying, simply configure the SNI proxy on the intermediate nodes following the same approach.</p>
