@@ -32,7 +32,7 @@ type User struct {
 	quota       int64
 	Hash        string
 	ipLock      sync.Mutex
-	ipTable     map[string]struct{}
+	ipTable     map[string]int
 	ipNum       int
 	MaxIPNum    int
 	limiterLock sync.RWMutex
@@ -54,13 +54,14 @@ func (u *User) AddIP(ip string) bool {
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	if _, found := u.ipTable[ip]; found {
+	if count, found := u.ipTable[ip]; found {
+		u.ipTable[ip] = count + 1
 		return true
 	}
 	if u.ipNum+1 > u.MaxIPNum {
 		return false
 	}
-	u.ipTable[ip] = struct{}{}
+	u.ipTable[ip] = 1
 	u.ipNum++
 	return true
 }
@@ -71,11 +72,16 @@ func (u *User) DelIP(ip string) bool {
 	if u.MaxIPNum <= 0 {
 		return true
 	}
-	if _, found := u.ipTable[ip]; !found {
+	count, found := u.ipTable[ip]
+	if !found {
 		return false
 	}
-	delete(u.ipTable, ip)
-	u.ipNum--
+	if count <= 1 {
+		delete(u.ipTable, ip)
+		u.ipNum--
+	} else {
+		u.ipTable[ip] = count - 1
+	}
 	return true
 }
 
@@ -238,7 +244,7 @@ func (a *Authenticator) AddUser(hash string) error {
 	ctx, cancel := context.WithCancel(a.ctx)
 	meter := &User{
 		Hash:    hash,
-		ipTable: make(map[string]struct{}),
+		ipTable: make(map[string]int),
 		ctx:     ctx,
 		cancel:  cancel,
 	}
@@ -365,7 +371,7 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 			ctx, cancel := context.WithCancel(a.ctx)
 			user := &User{
 				Hash:    hash,
-				ipTable: make(map[string]struct{}),
+				ipTable: make(map[string]int),
 				ctx:     ctx,
 				cancel:  cancel,
 			}
