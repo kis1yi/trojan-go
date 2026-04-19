@@ -66,7 +66,9 @@ All other unspecified options will be filled with the values given below.
   "mux": {
     "enabled": false,
     "concurrency": 8,
-    "idle_timeout": 60
+    "idle_timeout": 60,
+    "stream_buffer": 4194304,
+    "receive_buffer": 4194304
   },
   "router": {
     "enabled": false,

@@ -35,6 +35,8 @@ type Client struct {
 	underlay       tunnel.Client
 	concurrency    int
 	timeout        time.Duration
+	streamBuffer   int
+	receiveBuffer  int
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
@@ -114,8 +116,13 @@ func (c *Client) newMuxClient() (*smuxClientInfo, error) {
 	conn = newStickyConn(conn)
 
 	smuxConfig := smux.DefaultConfig()
-	// smuxConfig.KeepAliveDisabled = true
-	client, _ := smux.Client(conn, smuxConfig)
+	smuxConfig.MaxStreamBuffer = c.streamBuffer
+	smuxConfig.MaxReceiveBuffer = c.receiveBuffer
+	client, err := smux.Client(conn, smuxConfig)
+	if err != nil {
+		conn.Close()
+		return nil, common.NewError("mux failed to create smux client").Base(err)
+	}
 	info := &smuxClientInfo{
 		client:         client,
 		underlayConn:   conn,
@@ -170,12 +177,14 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 	clientConfig := config.FromContext(ctx, Name).(*Config)
 	ctx, cancel := context.WithCancel(ctx)
 	client := &Client{
-		underlay:    underlay,
-		concurrency: clientConfig.Mux.Concurrency,
-		timeout:     time.Duration(clientConfig.Mux.IdleTimeout) * time.Second,
-		ctx:         ctx,
-		cancel:      cancel,
-		clientPool:  make(map[muxID]*smuxClientInfo),
+		underlay:      underlay,
+		concurrency:   clientConfig.Mux.Concurrency,
+		timeout:       time.Duration(clientConfig.Mux.IdleTimeout) * time.Second,
+		streamBuffer:  clientConfig.Mux.StreamBuffer,
+		receiveBuffer: clientConfig.Mux.ReceiveBuffer,
+		ctx:           ctx,
+		cancel:        cancel,
+		clientPool:    make(map[muxID]*smuxClientInfo),
 	}
 	go client.cleanLoop()
 	log.Debug("mux client created")

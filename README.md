@@ -206,7 +206,9 @@ You can enable it by setting the `enabled` field in the client's `mux` option:
 }
 ```
 
-Only the client needs to be configured; the server adapts automatically. For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
+The `stream_buffer` and `receive_buffer` options (default 4 MB each) control the smux flow control window size. Larger values improve per-stream throughput on high-latency links. If customized, the values must match on both client and server.
+
+Only the client needs to enable mux; the server adapts automatically. For a complete description of options, refer to the [Trojan-Go Documentation](https://kis1yi.github.io/trojan-go).
 
 ### Routing Module
 

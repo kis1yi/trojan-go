@@ -6,16 +6,19 @@ import (
 	"github.com/xtaci/smux/v2"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/tunnel"
 )
 
 // Server is a smux server
 type Server struct {
-	underlay tunnel.Server
-	connChan chan tunnel.Conn
-	ctx      context.Context
-	cancel   context.CancelFunc
+	underlay      tunnel.Server
+	connChan      chan tunnel.Conn
+	streamBuffer  int
+	receiveBuffer int
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 func (s *Server) acceptConnWorker() {
@@ -32,7 +35,8 @@ func (s *Server) acceptConnWorker() {
 		}
 		go func(conn tunnel.Conn) {
 			smuxConfig := smux.DefaultConfig()
-			// smuxConfig.KeepAliveDisabled = true
+			smuxConfig.MaxStreamBuffer = s.streamBuffer
+			smuxConfig.MaxReceiveBuffer = s.receiveBuffer
 			smuxSession, err := smux.Server(conn, smuxConfig)
 			if err != nil {
 				log.Error(err)
@@ -81,12 +85,15 @@ func (s *Server) Close() error {
 }
 
 func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
+	serverConfig := config.FromContext(ctx, Name).(*Config)
 	ctx, cancel := context.WithCancel(ctx)
 	server := &Server{
-		underlay: underlay,
-		ctx:      ctx,
-		cancel:   cancel,
-		connChan: make(chan tunnel.Conn, 32),
+		underlay:      underlay,
+		streamBuffer:  serverConfig.Mux.StreamBuffer,
+		receiveBuffer: serverConfig.Mux.ReceiveBuffer,
+		ctx:           ctx,
+		cancel:        cancel,
+		connChan:      make(chan tunnel.Conn, 32),
 	}
 	go server.acceptConnWorker()
 	log.Debug("mux server created")

@@ -33,10 +33,16 @@ The complete mux configuration is as follows:
 "mux": {
     "enabled": false,
     "concurrency": 8,
-    "idle_timeout": 60
+    "idle_timeout": 60,
+    "stream_buffer": 4194304,
+    "receive_buffer": 4194304
 }
 ```
 
 `concurrency` is the maximum number of TCP connections each TLS connection can carry. The larger this value, the lower the handshake latency when multiple connections are concurrent, but the server and client will be under more computational load, which may decrease your network throughput. If your line's TLS handshake is extremely slow, you can set this to `-1`, meaning Trojan-Go will only perform one TLS handshake and use only one single TLS connection for all transmission.
 
 `idle_timeout` specifies how long each TLS connection should remain idle before being closed. Setting a timeout **may** help reduce unnecessary keepalive traffic that could trigger GFW probing. You can set this to `-1`, which means TLS connections will be closed immediately when idle.
+
+`stream_buffer` specifies the maximum buffer size in bytes per multiplexed stream (smux flow control window). The default is 4194304 (4 MB). Increasing this value allows higher throughput per stream at the cost of more memory usage. If customized, the value must match on both client and server.
+
+`receive_buffer` specifies the maximum total receive buffer size in bytes per smux session. The default is 4194304 (4 MB). This value must be greater than or equal to `stream_buffer`. If customized, the value must match on both client and server.
