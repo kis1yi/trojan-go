@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtaci/smux/v2"
+	"github.com/xtaci/smux"
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
@@ -37,6 +37,7 @@ type Client struct {
 	timeout        time.Duration
 	streamBuffer   int
 	receiveBuffer  int
+	protocol       int
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
@@ -116,6 +117,7 @@ func (c *Client) newMuxClient() (*smuxClientInfo, error) {
 	conn = newStickyConn(conn)
 
 	smuxConfig := smux.DefaultConfig()
+	smuxConfig.Version = c.protocol
 	smuxConfig.MaxStreamBuffer = c.streamBuffer
 	smuxConfig.MaxReceiveBuffer = c.receiveBuffer
 	client, err := smux.Client(conn, smuxConfig)
@@ -182,6 +184,7 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 		timeout:       time.Duration(clientConfig.Mux.IdleTimeout) * time.Second,
 		streamBuffer:  clientConfig.Mux.StreamBuffer,
 		receiveBuffer: clientConfig.Mux.ReceiveBuffer,
+		protocol:      clientConfig.Mux.Protocol,
 		ctx:           ctx,
 		cancel:        cancel,
 		clientPool:    make(map[muxID]*smuxClientInfo),

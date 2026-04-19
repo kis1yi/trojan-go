@@ -75,8 +75,8 @@ github.com/txthinking/socks5 v0.0.0-20251011041537-5c31f201a10e h1:xA7GVlbz6teIF
 github.com/txthinking/socks5 v0.0.0-20251011041537-5c31f201a10e/go.mod h1:ntmMHL/xPq1WLeKiw8p/eRATaae6PiVRNipHFJxI8PM=
 github.com/v2fly/v2ray-core/v5 v5.49.0 h1:fnHK+TtWY9gZnHTB2e/zSwUYkRfzodTqK4FsrzCamhg=
 github.com/v2fly/v2ray-core/v5 v5.49.0/go.mod h1:dIdr2dqt39b9lGv67J05V2XEIwsbFzdJyx883CdpqXI=
-github.com/xtaci/smux/v2 v2.1.0 h1:1S4MPBs5+pbOM9E3kosZY9mneF2bt+Sv8yRJz+jrwc4=
-github.com/xtaci/smux/v2 v2.1.0/go.mod h1:+d9j7RIuHJjNXWlIEFdYV6B/cU+FIPOzq/KgKOC3EwQ=
+github.com/xtaci/smux v1.5.57 h1:N72VbGoSYxgcm6mPOYX0QzEZNVD3UI/JlVvAtXF+WrY=
+github.com/xtaci/smux v1.5.57/go.mod h1:IGQ9QYrBphmb/4aTnLEcJby0TNr3NV+OslIOMrX825Q=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=

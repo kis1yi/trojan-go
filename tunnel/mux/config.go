@@ -8,6 +8,7 @@ type MuxConfig struct {
 	Concurrency   int  `json:"concurrency" yaml:"concurrency"`
 	StreamBuffer  int  `json:"stream_buffer" yaml:"stream-buffer"`
 	ReceiveBuffer int  `json:"receive_buffer" yaml:"receive-buffer"`
+	Protocol      int  `json:"protocol" yaml:"protocol"`
 }
 
 type Config struct {
@@ -23,6 +24,7 @@ func init() {
 				Concurrency:   8,
 				StreamBuffer:  4194304,
 				ReceiveBuffer: 4194304,
+				Protocol:      2,
 			},
 		}
 	})
