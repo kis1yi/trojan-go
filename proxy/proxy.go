@@ -7,8 +7,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/tunnel"
@@ -23,6 +25,8 @@ type Proxy struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	relayBufferSize int
+	tcpRelayIdle    time.Duration
+	udpSessionIdle  time.Duration
 }
 
 func (p *Proxy) Run() error {
@@ -73,6 +77,15 @@ func (p *Proxy) relayConnLoop() {
 					copyConn := func(dst io.Writer, src io.Reader) {
 						buffer := bufPool.Get().([]byte)
 						defer bufPool.Put(buffer)
+						if p.tcpRelayIdle > 0 {
+							// P0-1: half-duplex idle eviction. Each
+							// successful read on src refreshes its read
+							// deadline; a peer that stalls beyond the idle
+							// budget unblocks the relay so its goroutines
+							// can exit. Active flows keep the deadline
+							// fresh and are unaffected.
+							src = newIdleReader(src, p.tcpRelayIdle)
+						}
 						_, err := io.CopyBuffer(dst, src, buffer)
 						errChan <- err
 					}
@@ -133,6 +146,12 @@ func (p *Proxy) relayPacketLoop() {
 						buf := bufPool.Get().([]byte)
 						defer bufPool.Put(buf)
 						for {
+							if p.udpSessionIdle > 0 {
+								// P0-1: NAT eviction. A UDP relay with no
+								// activity for udpSessionIdle is closed so
+								// goroutines and ports do not leak.
+								_ = a.SetReadDeadline(time.Now().Add(p.udpSessionIdle))
+							}
 							n, metadata, err := a.ReadWithMetadata(buf)
 							if err != nil {
 								errChan <- err
@@ -173,12 +192,15 @@ func (p *Proxy) relayPacketLoop() {
 
 func NewProxy(ctx context.Context, cancel context.CancelFunc, sources []tunnel.Server, sink tunnel.Client) *Proxy {
 	cfg := config.FromContext(ctx, Name).(*Config)
+	t := timeout.FromContext(ctx)
 	return &Proxy{
 		sources:         sources,
 		sink:            sink,
 		ctx:             ctx,
 		cancel:          cancel,
 		relayBufferSize: cfg.RelayBufferSize,
+		tcpRelayIdle:    t.ResolveTCPRelayIdle(),
+		udpSessionIdle:  t.ResolveUDPSessionIdle(),
 	}
 }
 

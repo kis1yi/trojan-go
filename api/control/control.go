@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kis1yi/trojan-go/api/service"
 	"github.com/kis1yi/trojan-go/common"
@@ -121,9 +122,21 @@ func (o *apiController) setUsers(apiClient service.TrojanServerServiceClient) er
 				UploadSpeed:   uint64(*o.uploadSpeedLimit),
 				DownloadSpeed: uint64(*o.downloadSpeedLimit),
 			},
-			Quota: *o.quota,
 		},
 	}
+
+	// P0-3c: only attach the quota field when the operator passed `-quota`
+	// on the command line. `flag.Visit` enumerates only flags that were
+	// explicitly set (as opposed to flags whose Default was applied), which
+	// is exactly the presence semantics the proto3 `optional` field models.
+	// Without this gate, `trojan-go -api set -modify-profile ...` would
+	// silently overwrite the user's existing quota with 0 just because the
+	// caller did not opt into a value.
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "quota" {
+			req.Status.Quota = proto.Int64(*o.quota)
+		}
+	})
 
 	switch {
 	case *o.add:

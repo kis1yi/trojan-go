@@ -9,7 +9,10 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/uuid"
 	"github.com/kis1yi/trojan-go/api"
@@ -24,6 +27,13 @@ import (
 type ServerAPI struct {
 	TrojanServerServiceServer
 	auth statistic.Authenticator
+	// allowPayloadCapture is the resolved P0-4 gate for `GetRecords`'s
+	// `IncludePayload` flag. It is true only when the binary was compiled
+	// with the `apidebug` build tag AND the operator opted in via the
+	// `api.allow_payload_capture` config option. When false, GetRecords
+	// either silently strips payload (default build) or rejects the
+	// request with `codes.PermissionDenied` (apidebug build, flag off).
+	allowPayloadCapture bool
 }
 
 func (s *ServerAPI) GetUsers(stream TrojanServerService_GetUsersServer) error {
@@ -73,7 +83,7 @@ func (s *ServerAPI) GetUsers(stream TrojanServerService_GetUsersServer) error {
 				},
 				IpCurrent: int32(ipCurrent),
 				IpLimit:   int32(ipLimit),
-				Quota:     user.GetQuota(),
+				Quota:     proto.Int64(user.GetQuota()),
 			},
 		})
 		if err != nil {
@@ -119,8 +129,14 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 			if err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit)); err != nil {
 				break
 			}
-			if req.Status.Quota != 0 {
-				err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.Quota)
+			// P0-3c: only apply quota when the field was explicitly set by
+			// the caller. With proto3 `optional`, `req.Status.Quota == nil`
+			// means "caller did not specify" — leave the User.quota at the
+			// `-1` default produced by `AddUser` (see P0-3a). When the field
+			// is present, the value is honoured even if it is 0 (which the
+			// memory layer interprets as "no enforcement").
+			if req.Status.Quota != nil {
+				err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.GetQuota())
 			}
 		case SetUsersRequest_Delete:
 			err = s.auth.DelUser(req.Status.User.Hash)
@@ -140,7 +156,12 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 			if err = s.auth.SetUserIPLimit(req.Status.User.Hash, int(req.Status.IpLimit)); err != nil {
 				break
 			}
-			err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.Quota)
+			// P0-3c: same presence-aware semantics on Modify — if the caller
+			// omits quota, preserve the existing per-user value instead of
+			// silently overwriting it with 0.
+			if req.Status.Quota != nil {
+				err = s.auth.SetUserQuota(req.Status.User.Hash, req.Status.GetQuota())
+			}
 		}
 		if err != nil {
 			stream.Send(&SetUsersResponse{
@@ -183,7 +204,7 @@ func (s *ServerAPI) ListUsers(req *ListUsersRequest, stream TrojanServerService_
 				},
 				IpLimit:   int32(ipLimit),
 				IpCurrent: int32(ipCurrent),
-				Quota:     user.GetQuota(),
+				Quota:     proto.Int64(user.GetQuota()),
 			},
 		})
 		if err != nil {
@@ -195,8 +216,26 @@ func (s *ServerAPI) ListUsers(req *ListUsersRequest, stream TrojanServerService_
 
 func (s *ServerAPI) GetRecords(req *GetRecordsRequest, stream TrojanServerService_GetRecordsServer) error {
 	log.Debug("API: GetRecords")
+	// P0-4: gate raw payload streaming. Three states:
+	//   1. !payloadCaptureCompiled (default build): silently strip the
+	//      `IncludePayload` flag so callers always get metadata only. We do
+	//      not error: scripts that flip the flag should keep working in
+	//      production builds, just without payloads.
+	//   2. payloadCaptureCompiled && !allowPayloadCapture (apidebug binary,
+	//      operator did not opt in): reject the request with
+	//      PermissionDenied so the operator notices the misconfiguration.
+	//   3. payloadCaptureCompiled && allowPayloadCapture: behave as before.
+	includePayload := req.IncludePayload
+	if includePayload {
+		switch {
+		case !payloadCaptureCompiled:
+			includePayload = false
+		case !s.allowPayloadCapture:
+			return status.Error(codes.PermissionDenied, "payload capture is disabled; set api.allow_payload_capture = true to enable")
+		}
+	}
 	uid := uuid.Must(uuid.NewRandom()).String()
-	recordChan := recorder.Subscribe(uid, req.Transport, req.TargetPort, req.IncludePayload)
+	recordChan := recorder.Subscribe(uid, req.Transport, req.TargetPort, includePayload)
 	defer recorder.Unsubscribe(uid)
 
 	for {
@@ -260,8 +299,15 @@ func RunServerAPI(ctx context.Context, auth statistic.Authenticator) error {
 	if !cfg.API.Enabled {
 		return nil
 	}
+	// P0-4: resolve the payload-capture gate up front so the warning is
+	// emitted once at startup rather than per-request.
+	allowPayload := cfg.API.AllowPayloadCapture && payloadCaptureCompiled
+	if cfg.API.AllowPayloadCapture && !payloadCaptureCompiled {
+		log.Warn("api.allow_payload_capture is set but this binary was built without the `apidebug` build tag; payload capture remains disabled")
+	}
 	service := &ServerAPI{
-		auth: auth,
+		auth:                auth,
+		allowPayloadCapture: allowPayload,
 	}
 	server, err := newAPIServer(cfg)
 	if err != nil {
@@ -272,6 +318,16 @@ func RunServerAPI(ctx context.Context, auth statistic.Authenticator) error {
 	addr, err := net.ResolveIPAddr("ip", cfg.API.APIHost)
 	if err != nil {
 		return common.NewError("api found invalid addr").Base(err)
+	}
+	// P0-4: warn (do not refuse to start) when the API is bound to a
+	// non-loopback address without TLS/mTLS protection. Existing
+	// deployments that intentionally expose plaintext gRPC on a private
+	// network keep working; new operators see a loud signal in the logs
+	// the first time the server boots.
+	if !addr.IP.IsLoopback() && !cfg.API.SSL.Enabled {
+		log.Warn("api is bound to a non-loopback address (", cfg.API.APIHost, ") without TLS; gRPC traffic and any tokens are sent in cleartext. Enable api.ssl or restrict api.api_addr to a loopback / VPN interface.")
+	} else if !addr.IP.IsLoopback() && cfg.API.SSL.Enabled && !cfg.API.SSL.VerifyClient {
+		log.Warn("api is bound to a non-loopback address (", cfg.API.APIHost, ") with TLS but without client certificate verification; any client that trusts the server cert can issue commands. Consider api.ssl.verify-client.")
 	}
 	listener, err := net.Listen("tcp", (&net.TCPAddr{
 		IP:   addr.IP,

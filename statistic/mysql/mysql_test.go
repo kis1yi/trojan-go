@@ -190,3 +190,48 @@ func TestMySQLUpdaterQuotaEnforcement(t *testing.T) {
 		t.Fatalf("unfulfilled mock expectations: %v", err)
 	}
 }
+
+// TestMySQLUpdaterPropagatesQuotaToMemory is the P0-3b regression test. With
+// P0-3a, AddUser defaults `User.quota` to -1; the mysql updater therefore
+// MUST propagate the per-row quota value into the in-memory layer (via the
+// embedded `Authenticator.SetUserQuota`, which does not write back to the
+// DB) so that callers reading `User.GetQuota()` see the real limit.
+func TestMySQLUpdaterPropagatesQuotaToMemory(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+
+	rows := sqlmock.NewRows([]string{"password", "quota", "download", "upload", "speed_limit_up", "speed_limit_down", "ip_limit"}).
+		AddRow("limited", int64(8192), int64(0), int64(0), 0, 0, 0).
+		AddRow("unlimited", int64(-1), int64(0), int64(0), 0, 0, 0)
+	mock.ExpectQuery("SELECT password,quota,download,upload,speed_limit_up,speed_limit_down,ip_limit FROM users").
+		WillReturnRows(rows)
+
+	go a.updater()
+	time.Sleep(200 * time.Millisecond)
+
+	_, limited := a.AuthUser("limited")
+	if limited == nil {
+		t.Fatal("limited user not present after updater tick")
+	}
+	if got := limited.GetQuota(); got != 8192 {
+		t.Fatalf("limited user quota = %d, want 8192 (propagated from DB)", got)
+	}
+
+	_, unlimited := a.AuthUser("unlimited")
+	if unlimited == nil {
+		t.Fatal("unlimited user not present after updater tick")
+	}
+	if got := unlimited.GetQuota(); got != -1 {
+		t.Fatalf("unlimited user quota = %d, want -1", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
+}

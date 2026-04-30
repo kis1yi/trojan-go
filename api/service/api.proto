@@ -25,7 +25,11 @@ message UserStatus {
     Speed speed_limit = 4;
     int32 ip_current = 5;
     int32 ip_limit = 6;
-    int64 quota = 7;
+    // Per-user quota in bytes; <0 means unlimited, >0 enforces a hard cap.
+    // Marked `optional` so callers can distinguish "leave existing value as
+    // is" (field absent) from "explicitly set to 0" (field present, value 0)
+    // — proto3 zero values are otherwise indistinguishable from "unset".
+    optional int64 quota = 7;
 }
 
 message GetTrafficRequest {

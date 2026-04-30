@@ -74,24 +74,30 @@ func TestMemoryAuth(t *testing.T) {
 	}
 
 	user.ResetTraffic()
+	// Producer rate: ~200 KiB/s sent, ~100 KiB/s recv. Chosen to exceed the
+	// 64 KiB minimum burst (P0-2) within a few seconds so the limiter is
+	// actually exercised in the SetUserSpeedLimit assertion below.
 	go func() {
+		k := 100
+		chunk := 2 * 1024 // 2 KiB per tick
 		for {
-			k := 100
 			time.Sleep(time.Second / time.Duration(k))
-			user.AddSentTraffic(2000 / k)
-			user.AddRecvTraffic(1000 / k)
+			user.AddSentTraffic(chunk)
+			user.AddRecvTraffic(chunk / 2)
 		}
 	}()
 	time.Sleep(time.Second * 4)
-	if sent, recv := user.GetSpeed(); sent > 3000 || sent < 1000 || recv > 1500 || recv < 500 {
+	if sent, recv := user.GetSpeed(); sent > 300*1024 || sent < 100*1024 || recv > 150*1024 || recv < 50*1024 {
 		t.Error("GetSpeed", sent, recv)
 	} else {
 		t.Log("GetSpeed", sent, recv)
 	}
 
-	auth.SetUserSpeedLimit(user.GetHash(), 30, 20)
-	time.Sleep(time.Second * 4)
-	if sent, recv := user.GetSpeed(); sent > 60 || recv > 40 {
+	// 30 KiB/s send, 20 KiB/s recv: low enough to throttle the producer
+	// (~200 KiB/s) once the 64 KiB burst is depleted.
+	auth.SetUserSpeedLimit(user.GetHash(), 30*1024, 20*1024)
+	time.Sleep(time.Second * 6)
+	if sent, recv := user.GetSpeed(); sent > 60*1024 || recv > 40*1024 {
 		t.Error("SetSpeedLimit", sent, recv)
 	} else {
 		t.Log("SetSpeedLimit", sent, recv)
@@ -99,7 +105,7 @@ func TestMemoryAuth(t *testing.T) {
 
 	auth.SetUserSpeedLimit(user.GetHash(), 0, 0)
 	time.Sleep(time.Second * 4)
-	if sent, recv := user.GetSpeed(); sent < 30 || recv < 20 {
+	if sent, recv := user.GetSpeed(); sent < 30*1024 || recv < 15*1024 {
 		t.Error("SetSpeedLimit", sent, recv)
 	} else {
 		t.Log("SetSpeedLimit", sent, recv)

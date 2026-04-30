@@ -13,10 +13,11 @@ type SSLConfig struct {
 }
 
 type APIConfig struct {
-	Enabled bool      `json:"enabled" yaml:"enabled"`
-	APIHost string    `json:"api_addr" yaml:"api-addr"`
-	APIPort int       `json:"api_port" yaml:"api-port"`
-	SSL     SSLConfig `json:"ssl" yaml:"ssl"`
+	Enabled              bool      `json:"enabled" yaml:"enabled"`
+	APIHost              string    `json:"api_addr" yaml:"api-addr"`
+	APIPort              int       `json:"api_port" yaml:"api-port"`
+	SSL                  SSLConfig `json:"ssl" yaml:"ssl"`
+	AllowPayloadCapture  bool      `json:"allow_payload_capture" yaml:"allow-payload-capture"`
 }
 
 type Config struct {

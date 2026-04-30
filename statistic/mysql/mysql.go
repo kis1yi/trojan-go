@@ -68,6 +68,14 @@ func (a *Authenticator) updater() {
 				a.AddUser(hash)
 				a.Authenticator.SetUserSpeedLimit(hash, speedLimitUp, speedLimitDown)
 				a.Authenticator.SetUserIPLimit(hash, ipLimit)
+				// P0-3b: propagate quota into the memory layer so that
+				// in-process callers (e.g. the upcoming active-cutoff hook
+				// in P0-3d, and `User.GetQuota` consumers) see the real
+				// per-user limit. Use the embedded `Authenticator`'s
+				// `SetUserQuota`, NOT the wrapper above, to avoid issuing
+				// a redundant `UPDATE users SET quota=?` against the DB
+				// for a value we just read from it.
+				a.Authenticator.SetUserQuota(hash, quota)
 			} else {
 				a.DelUser(hash)
 			}

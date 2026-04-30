@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/redirector"
@@ -48,6 +49,7 @@ type Server struct {
 	underlay           tunnel.Server
 	nextHTTP           int32
 	portOverrider      map[string]int
+	timeouts           timeout.TimeoutConfig
 }
 
 func (s *Server) Close() error {
@@ -112,6 +114,13 @@ func (s *Server) acceptLoop() {
 			handshakeRewindConn := common.NewRewindConn(conn)
 			handshakeRewindConn.SetBufferSize(2048)
 
+			// P0-1: bound the TLS handshake. Slow-loris probes that complete
+			// the TCP handshake but never send a ClientHello must not tie up
+			// an accept goroutine indefinitely.
+			if d := s.timeouts.ResolveTLSHandshake(); d > 0 {
+				_ = handshakeRewindConn.SetDeadline(time.Now().Add(d))
+			}
+
 			tlsConn := tls.Server(handshakeRewindConn, tlsConfig)
 			err = tlsConn.Handshake()
 			handshakeRewindConn.StopBuffering()
@@ -141,17 +150,29 @@ func (s *Server) acceptLoop() {
 				return
 			}
 
+			// Handshake is complete; the trojan auth deadline (P0-1) takes
+			// over once the trojan layer reads, so clear the deadline here.
+			_ = handshakeRewindConn.SetDeadline(time.Time{})
+
 			log.Debug("tls connection from", conn.RemoteAddr())
 			state := tlsConn.ConnectionState()
 			log.Trace("tls handshake", tls.CipherSuiteName(state.CipherSuite), state.DidResume, state.NegotiatedProtocol)
 
-			// we use a real http header parser to mimic a real http server
+			// we use a real http header parser to mimic a real http server.
+			// P0-1: a client that completes TLS but then sends no HTTP/trojan
+			// bytes must not block forever in http.ReadRequest. Reuse the
+			// trojan-auth budget here — once trojan accepts the conn it will
+			// install its own (matching) deadline and clear it on success.
 			rewindConn := common.NewRewindConn(tlsConn)
 			rewindConn.SetBufferSize(1024)
+			if d := s.timeouts.ResolveTrojanAuth(); d > 0 {
+				_ = rewindConn.SetReadDeadline(time.Now().Add(d))
+			}
 			r := bufio.NewReader(rewindConn)
 			httpReq, err := http.ReadRequest(r)
 			rewindConn.Rewind()
 			rewindConn.StopBuffering()
+			_ = rewindConn.SetReadDeadline(time.Time{})
 			if err != nil {
 				// this is not a http request. pass it to trojan protocol layer for further inspection
 				s.connChan <- &transport.Conn{
@@ -363,6 +384,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 		cipherSuite:        cipherSuite,
 		ctx:                ctx,
 		cancel:             cancel,
+		timeouts:           timeout.FromContext(ctx),
 	}
 
 	go server.acceptLoop()

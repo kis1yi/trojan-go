@@ -5,8 +5,10 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"time"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/log"
 )
 
@@ -14,6 +16,17 @@ type Dial func(net.Addr) (net.Conn, error)
 
 func defaultDial(addr net.Addr) (net.Conn, error) {
 	return net.Dial("tcp", addr.String())
+}
+
+// dialerWithTimeout returns a Dial that bounds the dial step. The fallback
+// path must not block indefinitely on an unreachable backend; see P0-1.
+func dialerWithTimeout(d time.Duration) Dial {
+	if d <= 0 {
+		return defaultDial
+	}
+	return func(addr net.Addr) (net.Conn, error) {
+		return net.DialTimeout("tcp", addr.String(), d)
+	}
 }
 
 type Redirection struct {
@@ -25,6 +38,8 @@ type Redirection struct {
 type Redirector struct {
 	ctx             context.Context
 	redirectionChan chan *Redirection
+	dialTimeout     time.Duration
+	idleTimeout     time.Duration
 }
 
 func (r *Redirector) Redirect(redirection *Redirection) {
@@ -51,7 +66,7 @@ func (r *Redirector) worker() {
 					return
 				}
 				if redirection.Dial == nil {
-					redirection.Dial = defaultDial
+					redirection.Dial = dialerWithTimeout(r.dialTimeout)
 				}
 				log.Warn("redirecting connection from", redirection.InboundConn.RemoteAddr(), "to", redirection.RedirectTo.String())
 				outboundConn, err := redirection.Dial(redirection.RedirectTo)
@@ -62,6 +77,13 @@ func (r *Redirector) worker() {
 				defer outboundConn.Close()
 				errChan := make(chan error, 2)
 				copyConn := func(a, b net.Conn) {
+					if r.idleTimeout > 0 {
+						// Wrap the source so each successful read refreshes
+						// the read deadline. Half-duplex idle eviction
+						// prevents leaked fallback sessions when one side
+						// stops sending. See P0-1.
+						b = newIdleConn(b, r.idleTimeout)
+					}
 					_, err := io.Copy(a, b)
 					errChan <- err
 				}
@@ -87,9 +109,12 @@ func (r *Redirector) worker() {
 }
 
 func NewRedirector(ctx context.Context) *Redirector {
+	t := timeout.FromContext(ctx)
 	r := &Redirector{
 		ctx:             ctx,
 		redirectionChan: make(chan *Redirection, 64),
+		dialTimeout:     t.ResolveFallbackDial(),
+		idleTimeout:     t.ResolveFallbackIdle(),
 	}
 	go r.worker()
 	return r

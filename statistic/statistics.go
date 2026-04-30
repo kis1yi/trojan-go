@@ -18,6 +18,12 @@ type Metadata interface {
 	GetSpeedLimit() (sent, recv int)
 	GetIPLimit() int
 	GetQuota() int64
+	// Done returns a channel that is closed when the user has been cut off
+	// (e.g. quota exceeded, user removed by an operator). Tunnels are
+	// expected to watch this channel after authentication and tear down the
+	// underlying connection so that an in-flight relay does not keep
+	// shovelling bytes after enforcement has fired (P0-3d).
+	Done() <-chan struct{}
 }
 
 type TrafficMeter interface {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/kis1yi/trojan-go/api"
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/recorder"
@@ -35,11 +36,12 @@ type InboundConn struct {
 	recv uint64
 
 	net.Conn
-	auth     statistic.Authenticator
-	user     statistic.User
-	hash     string
-	metadata *tunnel.Metadata
-	ip       string
+	auth        statistic.Authenticator
+	user        statistic.User
+	hash        string
+	metadata    *tunnel.Metadata
+	ip          string
+	authTimeout time.Duration
 }
 
 func (c *InboundConn) Metadata() *tunnel.Metadata {
@@ -70,24 +72,31 @@ func (c *InboundConn) Close() error {
 // TrojanAuthTimeout bounds how long the server is willing to wait for a
 // client to send the 56-byte hash + CRLF + metadata block. Censorship probes
 // commonly hold the connection open without writing any auth bytes; without a
-// deadline this would tie up an accept goroutine indefinitely. The value is
-// intentionally short (4 s) to match the placeholder bar called out in the
-// 2026 hardening plan; the unified-deadline work in P0-1 will replace this
-// with a configurable field. It is declared as a var (not const) so tests can
-// shrink it without sleeping for the production default.
-var TrojanAuthTimeout = 4 * time.Second
+// deadline this would tie up an accept goroutine indefinitely.
+//
+// The package-level value is kept as a backwards-compatible default and is
+// overridden per-server via the unified TIMEOUT_CONFIG (see
+// common/timeout). It is declared as a var (not const) so tests can shrink it
+// without sleeping for the production default.
+var TrojanAuthTimeout = timeout.DefaultTrojanAuth
 
 func (c *InboundConn) Auth() error {
 	// Bound the time spent reading the auth header. The deadline is cleared
 	// before returning (success or failure) so that long-lived tunnels do not
 	// inherit the short auth deadline and the fallback path does not hand a
 	// nearly-expired deadline to the redirector backend.
-	if err := c.Conn.SetReadDeadline(time.Now().Add(TrojanAuthTimeout)); err != nil {
-		// Some net.Conn implementations (e.g. exotic mocks in tests) may not
-		// support deadlines. Log at Debug and continue — a missing deadline
-		// only weakens the slow-loris protection, it does not corrupt the
-		// handshake.
-		log.Debug("trojan: SetReadDeadline failed:", err)
+	d := c.authTimeout
+	if d == 0 {
+		d = TrojanAuthTimeout
+	}
+	if d > 0 {
+		if err := c.Conn.SetReadDeadline(time.Now().Add(d)); err != nil {
+			// Some net.Conn implementations (e.g. exotic mocks in tests) may
+			// not support deadlines. Log at Debug and continue — a missing
+			// deadline only weakens the slow-loris protection, it does not
+			// corrupt the handshake.
+			log.Debug("trojan: SetReadDeadline failed:", err)
+		}
 	}
 	authOK := false
 	defer func() {
@@ -160,15 +169,16 @@ func (c *InboundConn) Hash() string {
 
 // Server is a trojan tunnel server
 type Server struct {
-	auth       statistic.Authenticator
-	redir      *redirector.Redirector
-	redirAddr  *tunnel.Address
-	underlay   tunnel.Server
-	connChan   chan tunnel.Conn
-	muxChan    chan tunnel.Conn
-	packetChan chan tunnel.PacketConn
-	ctx        context.Context
-	cancel     context.CancelFunc
+	auth        statistic.Authenticator
+	redir       *redirector.Redirector
+	redirAddr   *tunnel.Address
+	underlay    tunnel.Server
+	connChan    chan tunnel.Conn
+	muxChan     chan tunnel.Conn
+	packetChan  chan tunnel.PacketConn
+	ctx         context.Context
+	cancel      context.CancelFunc
+	authTimeout time.Duration
 }
 
 func (s *Server) Close() error {
@@ -194,8 +204,9 @@ func (s *Server) acceptLoop() {
 			defer rewindConn.StopBuffering()
 
 			inboundConn := &InboundConn{
-				Conn: rewindConn,
-				auth: s.auth,
+				Conn:        rewindConn,
+				auth:        s.auth,
+				authTimeout: s.authTimeout,
 			}
 
 			if err := inboundConn.Auth(); err != nil {
@@ -207,6 +218,38 @@ func (s *Server) acceptLoop() {
 					InboundConn: rewindConn,
 				})
 				return
+			}
+
+			// P0-3d: as soon as the user is authenticated, watch their cutoff
+			// channel. When `User.Done()` fires (quota exceeded, operator
+			// removal, or authenticator shutdown) close the underlying
+			// transport so the in-flight relay loop in `proxy/proxy.go`
+			// observes EOF/closed-conn and tears down both directions. We
+			// stop watching when the connection itself is closed for any
+			// other reason (e.g. peer hangup) by also selecting on a local
+			// done channel that the wrapping `InboundConn.Close` signals.
+			if done := inboundConn.user.Done(); done != nil {
+				// If Done() is already closed at install time the user has
+				// been removed or the authenticator was shut down. Because
+				// the trojan auth in this codebase is held in a process-
+				// wide var (`Auth`) that survives Server.Close, this state
+				// is reachable when a Server is rebuilt against a stale
+				// Authenticator (e.g. tests with -count>1). Skip installing
+				// the watcher in that case so we do not close a brand-new
+				// transport based on a stale signal; the connection will
+				// still be torn down by ordinary Read/Write errors.
+				select {
+				case <-done:
+				default:
+					go func(c *InboundConn, cutoff <-chan struct{}) {
+						select {
+						case <-cutoff:
+							log.Info("user", log.RedactHash(c.hash), "cut off (quota or removal); closing tunnel from", c.Conn.RemoteAddr())
+							_ = c.Conn.Close()
+						case <-s.ctx.Done():
+						}
+					}(inboundConn, done)
+				}
 			}
 
 			rewindConn.StopBuffering()
@@ -291,15 +334,16 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 
 	redirAddr := tunnel.NewAddressFromHostPort("tcp", cfg.RemoteHost, cfg.RemotePort)
 	s := &Server{
-		underlay:   underlay,
-		auth:       Auth,
-		redirAddr:  redirAddr,
-		connChan:   make(chan tunnel.Conn, 32),
-		muxChan:    make(chan tunnel.Conn, 32),
-		packetChan: make(chan tunnel.PacketConn, 32),
-		ctx:        ctx,
-		cancel:     cancel,
-		redir:      redirector.NewRedirector(ctx),
+		underlay:    underlay,
+		auth:        Auth,
+		redirAddr:   redirAddr,
+		connChan:    make(chan tunnel.Conn, 32),
+		muxChan:     make(chan tunnel.Conn, 32),
+		packetChan:  make(chan tunnel.PacketConn, 32),
+		ctx:         ctx,
+		cancel:      cancel,
+		redir:       redirector.NewRedirector(ctx),
+		authTimeout: timeout.FromContext(ctx).ResolveTrojanAuth(),
 	}
 
 	if !cfg.DisableHTTPCheck {

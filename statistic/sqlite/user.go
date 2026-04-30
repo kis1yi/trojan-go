@@ -48,3 +48,12 @@ func (u *User) GetIPLimit() int {
 func (u *User) GetQuota() int64 {
 	return u.Quota
 }
+
+// Done satisfies statistic.Metadata. The SQLite user record is a passive
+// snapshot used only for persistence (SaveUser/LoadUser/ListUser); it has
+// no live runtime to cancel, so the channel is never closed. The returned
+// nil channel blocks forever in a select, which is the documented "no
+// cutoff signal" behaviour.
+func (u *User) Done() <-chan struct{} {
+	return nil
+}

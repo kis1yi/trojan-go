@@ -41,10 +41,23 @@ type User struct {
 	RecvLimiter *rate.Limiter
 	ctx         context.Context
 	cancel      context.CancelFunc
+	// P0-3d: dedicated cutoff signal, closed exactly once when the user is
+	// removed (DelUser/Close) or when their quota is exceeded. This is
+	// intentionally NOT closed when the parent authenticator context is
+	// cancelled (e.g. server shutdown), because shutdown should let the
+	// normal connection-close path tear down tunnels rather than racing
+	// the relay loop with an out-of-band conn close.
+	cutoff     chan struct{}
+	cutoffOnce sync.Once
+}
+
+func (u *User) fireCutoff() {
+	u.cutoffOnce.Do(func() { close(u.cutoff) })
 }
 
 func (u *User) Close() error {
 	u.ResetTraffic()
+	u.fireCutoff()
 	u.cancel()
 	return nil
 }
@@ -112,22 +125,105 @@ func (u *User) SetQuota(quota int64) {
 	atomic.StoreInt64(&u.quota, quota)
 }
 
+// Done satisfies statistic.Metadata. Returns a channel that is closed when
+// the user is cut off — either because their quota was exceeded or because
+// they were removed by the operator (DelUser / Close). Authenticator
+// shutdown does NOT fire this channel; tunnel teardown during shutdown is
+// handled by the normal connection-close path. Callers (typically a
+// tunnel.Conn wrapper) can react to cutoff by closing the underlying
+// transport so in-flight reads observe a closed-conn error.
+func (u *User) Done() <-chan struct{} {
+	return u.cutoff
+}
+
+// minRateLimitBurst is the floor on the burst size when constructing a new
+// rate.Limiter. Without this floor, configurations such as 4 KiB/s would
+// produce burst = 8 KiB which is smaller than the relay buffer (32 KiB by
+// default). Calls to WaitN(burst+1) return ErrLimitExceededN immediately and
+// the limiter is silently bypassed. We default to max(2*limit, 64 KiB) to
+// ensure burst is always >= the relay buffer; callers feed the limiter in
+// chunks of at most `burst` bytes (see addLimited below).
+const minRateLimitBurst = 64 * 1024
+
+func burstFor(limit int) int {
+	b := limit * 2
+	if b < minRateLimitBurst {
+		b = minRateLimitBurst
+	}
+	return b
+}
+
+// addLimited applies the configured rate limit to `n` bytes of traffic. The
+// limiter pointer is snapshotted under the read lock and the lock is
+// released before WaitN runs, so concurrent SetSpeedLimit reconfigurations
+// are not blocked by long throttled writes. The work is chunked at
+// `limiter.Burst()` boundaries so a single relay write larger than the burst
+// is not silently passed through unthrottled.
+func (u *User) addLimited(limiter *rate.Limiter, n int) {
+	if limiter == nil || n <= 0 {
+		return
+	}
+	burst := limiter.Burst()
+	if burst <= 0 {
+		return
+	}
+	remaining := n
+	for remaining > 0 {
+		chunk := remaining
+		if chunk > burst {
+			chunk = burst
+		}
+		if err := limiter.WaitN(u.ctx, chunk); err != nil {
+			// Context cancellation is normal on connection close; log at
+			// Debug and stop counting. Do not raise to Error — it would spam
+			// the log on every closed connection that was being throttled.
+			log.Debug("rate limiter wait:", err)
+			return
+		}
+		remaining -= chunk
+	}
+}
+
 func (u *User) AddSentTraffic(sent int) {
 	u.limiterLock.RLock()
-	if u.SendLimiter != nil && sent >= 0 {
-		u.SendLimiter.WaitN(u.ctx, sent)
-	}
+	limiter := u.SendLimiter
 	u.limiterLock.RUnlock()
-	atomic.AddUint64(&u.Sent, uint64(sent))
+	u.addLimited(limiter, sent)
+	total := atomic.AddUint64(&u.Sent, uint64(sent))
+	u.checkQuota(total + atomic.LoadUint64(&u.Recv))
 }
 
 func (u *User) AddRecvTraffic(recv int) {
 	u.limiterLock.RLock()
-	if u.RecvLimiter != nil && recv >= 0 {
-		u.RecvLimiter.WaitN(u.ctx, recv)
-	}
+	limiter := u.RecvLimiter
 	u.limiterLock.RUnlock()
-	atomic.AddUint64(&u.Recv, uint64(recv))
+	u.addLimited(limiter, recv)
+	total := atomic.AddUint64(&u.Recv, uint64(recv))
+	u.checkQuota(total + atomic.LoadUint64(&u.Sent))
+}
+
+// checkQuota implements the P0-3d active cutoff. The previous behaviour
+// only enforced quota at the next 10 s SQLite/MySQL sweep, allowing a
+// single tunnel to overshoot its byte budget by gigabytes between ticks.
+// Now, every traffic accounting call compares the running total against
+// the per-user quota and cancels `u.ctx` as soon as the threshold is
+// crossed. The cancellation propagates immediately into:
+//   - any in-flight `WaitN` call inside `addLimited` (see the rate limiter
+//     wait error path),
+//   - the `relayConnLoop`/`relayPacketLoop` reads in `proxy/proxy.go` that
+//     are wrapped with `idleReader` / `SetReadDeadline` (P0-1),
+//   - the `speedUpdater` and `trafficUpdater` goroutines started by
+//     `Authenticator.AddUser`.
+// `Close()` is idempotent w.r.t. cancel, so racing callers are safe.
+func (u *User) checkQuota(total uint64) {
+	q := atomic.LoadInt64(&u.quota)
+	if q <= 0 {
+		return // <0 unlimited, ==0 disabled (no enforcement, see P0-3a/c)
+	}
+	if total >= uint64(q) {
+		u.fireCutoff()
+		u.cancel()
+	}
 }
 
 func (u *User) SetSpeedLimit(send, recv int) {
@@ -137,12 +233,12 @@ func (u *User) SetSpeedLimit(send, recv int) {
 	if send <= 0 {
 		u.SendLimiter = nil
 	} else {
-		u.SendLimiter = rate.NewLimiter(rate.Limit(send), send*2)
+		u.SendLimiter = rate.NewLimiter(rate.Limit(send), burstFor(send))
 	}
 	if recv <= 0 {
 		u.RecvLimiter = nil
 	} else {
-		u.RecvLimiter = rate.NewLimiter(rate.Limit(recv), recv*2)
+		u.RecvLimiter = rate.NewLimiter(rate.Limit(recv), burstFor(recv))
 	}
 }
 
@@ -251,6 +347,13 @@ func (a *Authenticator) AddUser(hash string) error {
 		ipTable: make(map[string]int),
 		ctx:     ctx,
 		cancel:  cancel,
+		cutoff:  make(chan struct{}),
+		// P0-3a: default quota to -1 (unlimited). Without this, statically
+		// configured users (loaded via cfg.Passwords) would be created with
+		// quota == 0, which the SQLite quota enforcement loop interprets as
+		// "disabled / over quota" and immediately removes the user, breaking
+		// authentication for the YAML/JSON `passwords` config path.
+		quota: -1,
 	}
 	go meter.speedUpdater()
 	a.users.Store(hash, meter)
@@ -380,7 +483,7 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	if a.pst != nil {
 		err := a.pst.ListUser(func(hash string, u statistic.Metadata) bool {
 			if _, found := a.users.Load(hash); found {
-			log.Error("hash " + log.RedactHash(hash) + " is already exist")
+				log.Error("hash " + log.RedactHash(hash) + " is already exist")
 				return true
 			}
 			ctx, cancel := context.WithCancel(a.ctx)

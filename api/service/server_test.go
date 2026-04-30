@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
@@ -289,7 +290,7 @@ func TestServerAPIQuota(t *testing.T) {
 	err = setStream.Send(&SetUsersRequest{
 		Status: &UserStatus{
 			User:  &User{Hash: "quotahash"},
-			Quota: 5000,
+			Quota: proto.Int64(5000),
 		},
 		Operation: SetUsersRequest_Add,
 	})
@@ -310,8 +311,8 @@ func TestServerAPIQuota(t *testing.T) {
 		}
 		if listResp.Status.User.Hash == "quotahash" {
 			foundInList = true
-			if listResp.Status.Quota != 5000 {
-				t.Fatalf("ListUsers: expected quota 5000, got %d", listResp.Status.Quota)
+			if listResp.Status.GetQuota() != 5000 {
+				t.Fatalf("ListUsers: expected quota 5000, got %d", listResp.Status.GetQuota())
 			}
 		}
 	}
@@ -328,8 +329,8 @@ func TestServerAPIQuota(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUsers: %v", err)
 	}
-	if getResp.Status.Quota != 5000 {
-		t.Fatalf("GetUsers: expected quota 5000, got %d", getResp.Status.Quota)
+	if getResp.Status.GetQuota() != 5000 {
+		t.Fatalf("GetUsers: expected quota 5000, got %d", getResp.Status.GetQuota())
 	}
 	getStream.CloseSend()
 
@@ -337,7 +338,7 @@ func TestServerAPIQuota(t *testing.T) {
 	err = setStream.Send(&SetUsersRequest{
 		Status: &UserStatus{
 			User:  &User{Hash: "quotahash"},
-			Quota: 9999,
+			Quota: proto.Int64(9999),
 		},
 		Operation: SetUsersRequest_Modify,
 	})
@@ -357,10 +358,98 @@ func TestServerAPIQuota(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUsers after Modify: %v", err)
 	}
-	if getResp2.Status.Quota != 9999 {
-		t.Fatalf("GetUsers after Modify: expected quota 9999, got %d", getResp2.Status.Quota)
+	if getResp2.Status.GetQuota() != 9999 {
+		t.Fatalf("GetUsers after Modify: expected quota 9999, got %d", getResp2.Status.GetQuota())
 	}
 	getStream2.CloseSend()
+}
+
+// TestServerAPIQuotaPresenceAware is the P0-3c regression test. With the
+// proto3 `optional` quota field, the server MUST distinguish three cases:
+//
+//  1. Quota field absent on Add  → keep the User.quota default (-1).
+//  2. Quota field absent on Modify → preserve the existing per-user value.
+//  3. Quota field present (any value, including 0) → honour exactly.
+//
+// Before P0-3c, the server treated `Quota == 0` as "not set" and silently
+// wiped any positive quota on every Modify call that did not echo the
+// previous value. Conversely, an Add call that intended to disable
+// enforcement by sending 0 was ignored.
+func TestServerAPIQuotaPresenceAware(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = config.WithConfig(ctx, memory.Name, &memory.Config{Passwords: []string{}})
+	port := common.PickPort("tcp", "127.0.0.1")
+	ctx = config.WithConfig(ctx, Name, &Config{
+		APIConfig{
+			Enabled: true,
+			APIHost: "127.0.0.1",
+			APIPort: port,
+		},
+	})
+	auth, err := memory.NewAuthenticator(ctx)
+	common.Must(err)
+	go RunServerAPI(ctx, auth)
+	time.Sleep(time.Second * 3)
+
+	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port), grpc.WithInsecure())
+	common.Must(err)
+	defer conn.Close()
+	client := NewTrojanServerServiceClient(conn)
+
+	getQuota := func(hash string) int64 {
+		gs, err := client.GetUsers(ctx)
+		common.Must(err)
+		defer gs.CloseSend()
+		common.Must(gs.Send(&GetUsersRequest{User: &User{Hash: hash}}))
+		resp, err := gs.Recv()
+		common.Must(err)
+		return resp.Status.GetQuota()
+	}
+
+	setStream, err := client.SetUsers(ctx)
+	common.Must(err)
+	defer setStream.CloseSend()
+	send := func(hash string, op SetUsersRequest_Operation, quota *int64) {
+		t.Helper()
+		common.Must(setStream.Send(&SetUsersRequest{
+			Status:    &UserStatus{User: &User{Hash: hash}, Quota: quota},
+			Operation: op,
+		}))
+		resp, err := setStream.Recv()
+		common.Must(err)
+		if !resp.Success {
+			t.Fatalf("op %v hash %s: %s", op, hash, resp.Info)
+		}
+	}
+
+	// Case 1: Add without quota → default -1 preserved.
+	send("noquota", SetUsersRequest_Add, nil)
+	if got := getQuota("noquota"); got != -1 {
+		t.Fatalf("Add without quota: User.quota = %d, want -1 (P0-3a default)", got)
+	}
+
+	// Case 3a: Add with explicit 0 → enforcement disabled (value 0 honoured).
+	send("zeroquota", SetUsersRequest_Add, proto.Int64(0))
+	if got := getQuota("zeroquota"); got != 0 {
+		t.Fatalf("Add with quota=0: User.quota = %d, want 0", got)
+	}
+
+	// Seed a user with a positive quota, then Modify without quota → preserved.
+	send("preserve", SetUsersRequest_Add, proto.Int64(7777))
+	if got := getQuota("preserve"); got != 7777 {
+		t.Fatalf("Add with quota=7777: got %d", got)
+	}
+	send("preserve", SetUsersRequest_Modify, nil)
+	if got := getQuota("preserve"); got != 7777 {
+		t.Fatalf("Modify without quota wiped value: got %d, want 7777", got)
+	}
+
+	// Case 3b: Modify with explicit 0 → honoured.
+	send("preserve", SetUsersRequest_Modify, proto.Int64(0))
+	if got := getQuota("preserve"); got != 0 {
+		t.Fatalf("Modify with quota=0: got %d, want 0", got)
+	}
 }
 
 var serverRSA2048Cert = `
