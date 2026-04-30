@@ -26,18 +26,18 @@ type User struct {
 	// must be 64-bit aligned on 32-bit systems.
 	// Reference: https://github.com/golang/go/issues/599
 	// Solution: https://github.com/golang/go/issues/11891#issuecomment-433623786
-	Sent        uint64
-	Recv        uint64
-	lastSent    uint64
-	lastRecv    uint64
-	sendSpeed   uint64
-	recvSpeed   uint64
-	quota       int64
-	Hash        string
-	ipLock      sync.Mutex
-	ipTable     map[string]int
-	ipNum       int
-	MaxIPNum    int
+	Sent      uint64
+	Recv      uint64
+	lastSent  uint64
+	lastRecv  uint64
+	sendSpeed uint64
+	recvSpeed uint64
+	quota     int64
+	Hash      string
+	ipLock    sync.Mutex
+	ipTable   map[string]int
+	ipNum     int
+	MaxIPNum  int
 	// P1-2: per-user concurrent connection cap. MaxConnNum == 0 means
 	// unlimited. connNum is updated under ipLock by AddIP/DelIP — both
 	// counters share the same critical section so AddIP atomically rejects

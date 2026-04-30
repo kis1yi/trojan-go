@@ -239,10 +239,10 @@ func TestMySQLUpdaterPropagatesQuotaToMemory(t *testing.T) {
 
 // TestMySQLUpdaterSurvivesPingFailure is the P1-3 reliability regression.
 // When the DB is unreachable, the updater MUST:
-//   1. NOT delete existing in-memory users (cache continues to authenticate);
-//   2. NOT issue any subsequent SELECT/UPDATE for that tick;
-//   3. Increment ErrorsTotal so the operator can observe the outage via the
-//      upcoming P1-5 metrics surface.
+//  1. NOT delete existing in-memory users (cache continues to authenticate);
+//  2. NOT issue any subsequent SELECT/UPDATE for that tick;
+//  3. Increment ErrorsTotal so the operator can observe the outage via the
+//     upcoming P1-5 metrics surface.
 func TestMySQLUpdaterSurvivesPingFailure(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	if err != nil {

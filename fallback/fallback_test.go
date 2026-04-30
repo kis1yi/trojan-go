@@ -54,9 +54,9 @@ func TestRulesFromLegacyTranslation(t *testing.T) {
 func TestRulesFromConfigDropsInvalid(t *testing.T) {
 	in := []RuleConfig{
 		{Addr: "ok", Port: 80},
-		{Addr: "", Port: 80},          // missing addr
-		{Addr: "ok", Port: 0},         // bad port
-		{Addr: "ok", Port: 70000},     // out of range
+		{Addr: "", Port: 80},                     // missing addr
+		{Addr: "ok", Port: 0},                    // bad port
+		{Addr: "ok", Port: 70000},                // out of range
 		{Addr: "ok", Port: 80, ProxyProtocol: 3}, // bad pp version
 		{Default: true, Addr: "fallback", Port: 8080},
 	}
