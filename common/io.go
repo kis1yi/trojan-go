@@ -110,6 +110,15 @@ func (c *RewindConn) Read(p []byte) (int, error) {
 	return c.RewindReader.Read(p)
 }
 
+// NetConn exposes the underlying transport conn so callers walking a
+// chain of wrappers (notably fallback.Unwrap) can descend past the
+// rewind layer. The returned conn must NOT be read directly while the
+// rewind buffer still has unread bytes — use it for type assertions and
+// metadata recovery only.
+func (c *RewindConn) NetConn() net.Conn {
+	return c.Conn
+}
+
 func NewRewindConn(conn net.Conn) *RewindConn {
 	return &RewindConn{
 		Conn: conn,

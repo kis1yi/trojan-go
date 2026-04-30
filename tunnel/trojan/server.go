@@ -15,6 +15,7 @@ import (
 	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/fallback"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/metrics"
 	"github.com/kis1yi/trojan-go/recorder"
@@ -230,6 +231,21 @@ func (s *Server) acceptLoop() {
 				rewindConn.Rewind()
 				rewindConn.StopBuffering()
 				log.Warn(common.NewError("connection with invalid trojan header from " + rewindConn.RemoteAddr().String()).Base(err))
+				// P1-1c: consult the fallback rule attached by the TLS
+				// layer (via fallback.Unwrap, which descends through
+				// transport.Conn and common.RewindConn). When a rule is
+				// available route the redirect to its Addr/Port and
+				// preserve the rule on the wire so P1-1d's PROXY-protocol
+				// emission can read it. When no rule is available fall
+				// back to the legacy s.redirAddr (single-fallback config
+				// or no TLS layer underneath).
+				if rule := fallback.Unwrap(rewindConn); rule != nil {
+					s.redir.Redirect(&redirector.Redirection{
+						RedirectTo:  tunnel.NewAddressFromHostPort("tcp", rule.Addr, rule.Port),
+						InboundConn: rewindConn,
+					})
+					return
+				}
 				s.redir.Redirect(&redirector.Redirection{
 					RedirectTo:  s.redirAddr,
 					InboundConn: rewindConn,
