@@ -303,7 +303,7 @@ func RunServerAPI(ctx context.Context, auth statistic.Authenticator) error {
 	// emitted once at startup rather than per-request.
 	allowPayload := cfg.API.AllowPayloadCapture && payloadCaptureCompiled
 	if cfg.API.AllowPayloadCapture && !payloadCaptureCompiled {
-		log.Warn("api.allow_payload_capture is set but this binary was built without the `apidebug` build tag; payload capture remains disabled")
+		log.Warn("api.allow_payload_capture is set but this binary was built without the `apidebug` build tag; capture remains disabled")
 	}
 	service := &ServerAPI{
 		auth:                auth,

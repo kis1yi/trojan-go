@@ -10,6 +10,7 @@ import (
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/metrics"
 )
 
 type Dial func(net.Addr) (net.Conn, error)
@@ -45,6 +46,12 @@ type Redirector struct {
 func (r *Redirector) Redirect(redirection *Redirection) {
 	select {
 	case r.redirectionChan <- redirection:
+		// P1-5: count every accepted fallback dispatch. We count at enqueue
+		// time (not in worker) so back-pressure failures are not silently
+		// missing from the counter \u2014 if the channel is full and ctx is
+		// done, the operator will see the counter plateau in lockstep with
+		// the new "fallback queue full" warn line below.
+		metrics.IncFallback()
 		log.Debug("redirect request")
 	case <-r.ctx.Done():
 		log.Debug("exiting")

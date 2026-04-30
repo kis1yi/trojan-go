@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/metrics"
 	"github.com/kis1yi/trojan-go/recorder"
 	"github.com/kis1yi/trojan-go/redirector"
 	"github.com/kis1yi/trojan-go/statistic"
@@ -43,6 +45,7 @@ type InboundConn struct {
 	metadata    *tunnel.Metadata
 	ip          string
 	authTimeout time.Duration
+	closeOnce   sync.Once
 }
 
 func (c *InboundConn) Metadata() *tunnel.Metadata {
@@ -67,6 +70,10 @@ func (c *InboundConn) Close() error {
 	log.Debug("user", log.RedactHash(c.hash), "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address, "closed",
 		"sent:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.sent)), "recv:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.recv)))
 	c.user.DelIP(c.ip)
+	// P1-5: release the active-tunnel gauge entry created in Auth().
+	// closeOnce guarantees Inc/Dec balance even when Close is invoked by
+	// both the relay loop and an external Closer (e.g. quota cutoff hook).
+	c.closeOnce.Do(metrics.DecActiveConnections)
 	return c.Conn.Close()
 }
 
@@ -116,6 +123,10 @@ func (c *InboundConn) Auth() error {
 
 	valid, user := c.auth.AuthUser(string(userHash[:]))
 	if !valid {
+		// P1-5: count rejected handshakes. Distinct from fallback_total —
+		// fallback_total measures redirector dispatches, this counts only
+		// the upstream auth verdict.
+		metrics.IncAuthFailures()
 		// userHash is arbitrary client-controlled bytes — sanitise to hex
 		// before redacting so log lines stay single-line and printable.
 		return common.NewError("invalid hash:" + log.RedactHash(hex.EncodeToString(userHash[:])))
@@ -151,6 +162,11 @@ func (c *InboundConn) Auth() error {
 	}
 
 	authOK = true
+	// P1-5: bump the active-tunnel gauge once per successful handshake;
+	// the matching DecActiveConnections lives in InboundConn.Close,
+	// guarded by closeOnce so re-entrant Close calls cannot drift the
+	// counter negative.
+	metrics.IncActiveConnections()
 	// Clear the auth deadline now that the handshake is complete; long-lived
 	// tunnels must not inherit the short deadline.
 	if err := c.Conn.SetReadDeadline(time.Time{}); err != nil {

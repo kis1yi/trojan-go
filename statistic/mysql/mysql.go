@@ -14,6 +14,7 @@ import (
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/metrics"
 	"github.com/kis1yi/trojan-go/statistic"
 	"github.com/kis1yi/trojan-go/statistic/memory"
 )
@@ -249,6 +250,11 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 		queryTimeout:   resolveQueryTimeout(cfg.MySQL.QueryTimeout),
 		Authenticator:  memoryAuth.(*memory.Authenticator),
 	}
+	// P1-5: hand the metrics package a reference to this authenticator's
+	// error counter so Snapshot() can publish mysql_errors_total without an
+	// import cycle. Replacing a previously-installed provider is fine: only
+	// one MySQL authenticator is ever active at a time per process.
+	metrics.SetMySQLErrorsProvider(a.ErrorsTotal)
 	go a.updater()
 	log.Debug("mysql authenticator created")
 	return a, nil

@@ -13,6 +13,7 @@ import (
 	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
+	"github.com/kis1yi/trojan-go/metrics"
 	"github.com/kis1yi/trojan-go/statistic"
 	"github.com/kis1yi/trojan-go/statistic/sqlite"
 )
@@ -59,7 +60,14 @@ type User struct {
 }
 
 func (u *User) fireCutoff() {
-	u.cutoffOnce.Do(func() { close(u.cutoff) })
+	u.cutoffOnce.Do(func() {
+		close(u.cutoff)
+		// P1-5: count distinct quota cutoff events. cutoffOnce.Do guarantees
+		// each user contributes at most once per AddUser lifetime, so the
+		// counter measures real over-budget incidents rather than per-tick
+		// noise.
+		metrics.IncQuotaCutoff()
+	})
 }
 
 func (u *User) Close() error {
@@ -195,7 +203,13 @@ func (u *User) addLimited(limiter *rate.Limiter, n int) {
 		if chunk > burst {
 			chunk = burst
 		}
-		if err := limiter.WaitN(u.ctx, chunk); err != nil {
+		waitStart := time.Now()
+		err := limiter.WaitN(u.ctx, chunk)
+		// P1-5: cumulative wall time spent throttled. Always recorded — even
+		// when WaitN errors out — because the partial wait still consumed
+		// real time that the operator should be able to observe.
+		metrics.AddRateLimitWaitNanos(time.Since(waitStart).Nanoseconds())
+		if err != nil {
 			// Context cancellation is normal on connection close; log at
 			// Debug and stop counting. Do not raise to Error — it would spam
 			// the log on every closed connection that was being throttled.
