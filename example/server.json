@@ -10,7 +10,21 @@
     "ssl": {
         "cert": "your_cert.crt",
         "key": "your_key.key",
-        "sni": "your-domain-name.com"
+        "sni": "your-domain-name.com",
+        "fallback": [
+            {
+                "sni": "your-domain-name.com",
+                "alpn": ["h2", "http/1.1"],
+                "addr": "127.0.0.1",
+                "port": 8443,
+                "proxy_protocol": 2
+            },
+            {
+                "default": true,
+                "addr": "127.0.0.1",
+                "port": 80
+            }
+        ]
     },
     "router": {
         "enabled": true,
@@ -19,5 +33,17 @@
         ],
         "geoip": "/usr/share/trojan-go/geoip.dat",
         "geosite": "/usr/share/trojan-go/geosite.dat"
+    },
+    "timeout": {
+        "tls_handshake": 10,
+        "trojan_auth": 4,
+        "tcp_relay_idle": 300,
+        "udp_session_idle": 60,
+        "fallback_dial": 5,
+        "fallback_idle": 30
+    },
+    "queue": {
+        "accept_queue_size": 256,
+        "max_conn_per_user": 0
     }
 }

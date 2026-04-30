@@ -9,9 +9,30 @@ ssl:
   cert: your_cert.crt
   key: your_key.key
   sni: your-domain-name.com
+  fallback:
+    - sni: your-domain-name.com
+      alpn:
+        - h2
+        - http/1.1
+      addr: 127.0.0.1
+      port: 8443
+      proxy-protocol: 2
+    - default: true
+      addr: 127.0.0.1
+      port: 80
 router:
   enabled: true
   block:
     - 'geoip:private'
   geoip: /usr/share/trojan-go/geoip.dat
   geosite: /usr/share/trojan-go/geosite.dat
+timeout:
+  tls-handshake: 10
+  trojan-auth: 4
+  tcp-relay-idle: 300
+  udp-session-idle: 60
+  fallback-dial: 5
+  fallback-idle: 30
+queue:
+  accept-queue-size: 256
+  max-conn-per-user: 0

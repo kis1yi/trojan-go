@@ -54,6 +54,7 @@ All other unspecified options will be filled with the values given below.
     "plain_http_response": "",
     "fallback_addr": "",
     "fallback_port": 0,
+    "fallback": [],
     "fingerprint": "",
     "ech": false,
     "ech_config": ""
@@ -114,12 +115,14 @@ All other unspecified options will be filled with the values given below.
     "database": "",
     "username": "",
     "password": "",
-    "check_rate": 60
+    "check_rate": 60,
+    "query_timeout": 5
   },
   "api": {
     "enabled": false,
     "api_addr": "",
     "api_port": 0,
+    "allow_payload_capture": false,
     "ssl": {
       "enabled": false,
       "key": "",
@@ -127,6 +130,18 @@ All other unspecified options will be filled with the values given below.
       "verify_client": false,
       "client_cert": []
     }
+  },
+  "timeout": {
+    "tls_handshake": 10,
+    "trojan_auth": 4,
+    "tcp_relay_idle": 300,
+    "udp_session_idle": 60,
+    "fallback_dial": 5,
+    "fallback_idle": 30
+  },
+  "queue": {
+    "accept_queue_size": 256,
+    "max_conn_per_user": 0
   }
 }
 ```
@@ -211,6 +226,29 @@ Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `ses
 `plain_http_response` refers to the raw data (raw TCP data) that the server sends in plaintext when TLS handshake fails. Fill in the file path for this field. It is recommended to use `fallback_port` instead of this field.
 
 `fallback_addr` and `fallback_port` specify the address to which trojan-go redirects the connection when the server TLS handshake fails. This is a trojan-go feature to better hide the server and resist GFW's active probing, making the server's port 443 behave exactly like a normal server when probed with non-TLS protocols. When the server accepts a connection but cannot perform TLS handshake, if `fallback_port` is non-empty, the traffic will be proxied to `fallback_addr:fallback_port`. If `fallback_addr` is empty, `remote_addr` is used. For example, you can run an HTTPS service locally with nginx, and when your server's port 443 receives a non-TLS protocol request (such as an HTTP request), trojan-go will proxy it to the local HTTPS server, and nginx will return a 400 Bad Request page in plaintext HTTP. You can verify this by using a browser to access `http://your-domain-name.com:443`.
+
+`fallback` is a list of structured fallback rules. When non-empty it takes precedence over the legacy `fallback_addr`/`fallback_port` pair, which is auto-translated to a single default rule when `fallback` is empty. Each rule is matched against the TLS `ServerName` (SNI) and `NegotiatedProtocol` (ALPN) of the rejected probe; the first rule whose `sni` (case-insensitive substring match) and `alpn` (any-of, empty list = match all) both match is used. A rule with `default: true` is the catch-all and is consulted when no SNI/ALPN-specific rule matches. Routing also applies to probes that complete the TLS handshake but then fail trojan auth, so an active probe sending wrong-protocol bytes after a valid SNI ends up on the same backend as a wrong-SNI probe. Each rule has the following fields:
+
+- `sni` — case-insensitive substring matched against the probe's TLS SNI. Empty matches any SNI.
+
+- `alpn` — list of acceptable ALPN strings (e.g. `["h2", "http/1.1"]`). Empty matches any ALPN.
+
+- `addr`, `port` — required. Destination of the fallback dial.
+
+- `proxy_protocol` — `0` (no header, default), `1` (PROXY protocol v1, text), or `2` (PROXY protocol v2, binary). When non-zero a header carrying the original client's TCP address is prepended to the outbound stream so PROXY-aware backends (nginx, haproxy) see the real peer instead of the trojan-go process address. Header emission failure is logged at `Warn` but does not abort the relay.
+
+- `default` — boolean. The single catch-all rule used when no SNI/ALPN-specific rule matches.
+
+Invalid entries (missing `addr`, `port` outside `1..65535`, `proxy_protocol` outside `0..2`) are silently dropped at parse time.
+
+Example:
+
+```json
+"fallback": [
+  {"sni": "site.example", "alpn": ["h2"], "addr": "127.0.0.1", "port": 8443, "proxy_protocol": 2},
+  {"default": true, "addr": "127.0.0.1", "port": 80}
+]
+```
 
 `key_log` The file path for the TLS key log. If filled in, key logging is enabled. **Recording keys breaks TLS security and this option should not be used for any purpose other than debugging.**
 
@@ -344,6 +382,8 @@ trojan-go is compatible with Trojan's MySQL-based user management, but the more 
 
 `check_rate` is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.
 
+`query_timeout` is the per-call deadline (in seconds) applied to every MySQL `Query`/`Exec`. `0` or a negative value selects the default of `5` seconds. Each updater iteration starts with a `PingContext` health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited `Warn` is emitted. Cumulative driver/query failures are exposed as the `mysql_errors_total` counter for the metrics surface.
+
 Other options are self-explanatory and will not be elaborated on further.
 
 The users table structure is consistent with the Trojan version definition. Below is an example of creating the users table. Note that the password here refers to the SHA224 hash of the password (a string), and the units of traffic download, upload, quota are bytes. You can add and delete users, or specify users' traffic quotas by modifying the user record in the database's users table. trojan-go will automatically update the currently valid user list based on all users' traffic quotas. If download+upload>quota, the trojan-go server will reject that user's connection.
@@ -402,4 +442,29 @@ trojan-go provides an API based on gRPC to support management and statistics for
 
 - `client_cert` if client authentication is enabled, fill in the list of authenticated client certificates here.
 
-Warning: **Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.**
+`allow_payload_capture` controls whether the `GetRecords` RPC is allowed to stream raw connection payloads (in addition to per-connection metadata). It defaults to `false`. The flag is **only** honoured when the binary is built with the `apidebug` build tag; default release builds silently downgrade `IncludePayload=true` requests to metadata-only streaming so production scripts cannot leak bytes regardless of the config value. With the `apidebug` tag and the flag set to `false` the RPC returns `PermissionDenied`, making misconfiguration loud rather than silent. Leave this at `false` outside of focused debugging.
+
+Warning: **Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.** When `api_addr` is bound to a non-loopback address, trojan-go logs a `WARN` at startup if TLS is not enabled, and a separate `WARN` if TLS is enabled but `verify_client` is off. The server is not refused so existing private-network deployments keep working, but plaintext gRPC and any management commands travelling over an exposed interface should be considered world-readable.
+
+### ```timeout``` Options
+
+The `timeout` block centralises every deadline that protects the server from slow or stuck peers. All values are in seconds: `0` selects the documented default, `-1` disables the corresponding deadline.
+
+| Field | Default | Applied at |
+|---|---|---|
+| `tls_handshake` | `10` | TLS server `SetDeadline` covering both `Handshake()` and the immediate post-handshake HTTP sniff. A client that completes TLS and then sends nothing is closed within this budget rather than hanging in `http.ReadRequest`. |
+| `trojan_auth` | `4` | Read deadline before the 56-byte hash + metadata block. The deadline is cleared on successful auth so long-lived tunnels do not inherit it, and is also cleared before the rewind/fallback path so a fallback backend never inherits a nearly-expired deadline. |
+| `tcp_relay_idle` | `300` | Half-duplex idle on each direction of the TCP relay loop. The read deadline is refreshed on every successful read; an active tunnel under sustained throughput is not killed prematurely. |
+| `udp_session_idle` | `60` | Read deadline applied before each UDP packet read. |
+| `fallback_dial` | `5` | `net.DialTimeout` for the redirector's outbound dial when sending a probe to the fallback backend. |
+| `fallback_idle` | `30` | Half-duplex idle on the redirector's relay copies, refreshed on every successful read. |
+
+Leave the block empty to accept all defaults; setting any field independently overrides only that timeout.
+
+### ```queue``` Options
+
+The `queue` block sizes the per-listener accept queues and the per-user concurrent connection cap.
+
+`accept_queue_size` is the buffer size of every transport, TLS, trojan and mux accept channel. The default is `256`. When the buffer is full, new accepts are dropped with a single `Warn("accept queue full ...")` and the inbound socket is closed; the accept goroutine itself is never parked, so a stuck consumer can no longer back up the listener. `0` selects the default; `-1` collapses to a length-1 buffered channel (rarely useful, accepted for symmetry with `timeout`).
+
+`max_conn_per_user` is the maximum number of simultaneously open connections allowed per authenticated user, enforced atomically in the same critical section as the per-IP cap. The default is `0` (unlimited); any positive value caps each user, and surplus connections are rejected at auth time. Negative values are normalised to `0`.

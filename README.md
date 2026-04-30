@@ -29,12 +29,17 @@ Trojan-Go is compatible with most features of the original Trojan, including but
 - TLS tunneled transport
 - UDP proxy
 - Transparent proxy (NAT mode, iptables setup reference [here](https://github.com/shadowsocks/shadowsocks-libev/tree/v3.3.1#transparent-proxy))
-- Mechanisms against GFW passive detection / active probing
-- MySQL data persistence
+- Mechanisms against GFW passive detection / active probing, including SNI/ALPN-routed fallback rules with optional PROXY protocol v1/v2 emission on the dial to the fallback backend
+- MySQL data persistence with bounded query timeouts and a Ping-based health check that keeps the in-memory user cache serving traffic during transient DB outages
 - MySQL user permission authentication
-- Per-user speed limits and IP limits persisted in MySQL, polled and applied at runtime
-- User traffic statistics and quota limits
-- Per-user quota management via CLI and gRPC API
+- Per-user speed limits, IP limits, concurrent-connection caps and byte quotas persisted in MySQL/SQLite, polled and applied at runtime
+- User traffic statistics and **active** quota cutoff: an in-flight tunnel is closed within ~1 second of crossing the user's byte quota, not at the next polling tick
+- Per-user quota management via CLI and gRPC API; the wire format is presence-aware (`optional int64 quota`) so omitted fields preserve the existing value while an explicit `0` disables the user
+- Centralised timeout configuration (`timeout:` block) covering TLS handshake, trojan auth, TCP/UDP relay idle, fallback dial and fallback relay idle
+- Centralised accept-queue and per-user connection-cap configuration (`queue:` block); accept goroutines never block, surplus accepts are dropped with a `Warn` instead of parking the listener
+- Hash/password redaction in logs (`log.RedactHash`) so that user identifiers are never written in full
+- In-process metrics counters (`active_connections`, `auth_failures_total`, `fallback_total`, `quota_cutoff_total`, `rate_limit_wait_total_ns`, `mysql_errors_total`, `goroutines`)
+- Default release builds cannot leak connection payloads through the `GetRecords` gRPC API; payload streaming is only compiled into binaries built with the `apidebug` build tag, and additionally requires `api.allow_payload_capture` in the config
 
 Additionally, Trojan-Go also implements more efficient and easy-to-use features:
 
