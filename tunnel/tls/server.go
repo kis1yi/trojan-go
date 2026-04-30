@@ -20,6 +20,7 @@ import (
 	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/fallback"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/redirector"
 	"github.com/kis1yi/trojan-go/tunnel"
@@ -31,6 +32,7 @@ import (
 // Server is a tls server
 type Server struct {
 	fallbackAddress    *tunnel.Address
+	fallbackRules      []fallback.Rule
 	verifySNI          bool
 	sni                string
 	alpn               []string
@@ -132,11 +134,13 @@ func (s *Server) acceptLoop() {
 					handshakeRewindConn.Rewind()
 					log.Error(common.NewError("failed to perform tls handshake with " + tlsConn.RemoteAddr().String() + ", redirecting").Base(err))
 					switch {
-					case s.fallbackAddress != nil:
-						s.redir.Redirect(&redirector.Redirection{
-							InboundConn: handshakeRewindConn,
-							RedirectTo:  s.fallbackAddress,
-						})
+					case s.fallbackAddress != nil || len(s.fallbackRules) > 0:
+						// P1-1b: state is nil here — SNI/ALPN are
+						// unknown because the handshake never reached
+						// the ClientHello stage. dispatchFallback will
+						// pick the default rule (or the legacy
+						// fallbackAddress).
+						s.dispatchFallback(handshakeRewindConn, nil)
 					case s.httpResp != nil:
 						handshakeRewindConn.Write(s.httpResp)
 						handshakeRewindConn.Close()
@@ -181,10 +185,12 @@ func (s *Server) acceptLoop() {
 				if atomic.LoadInt32(&s.nextHTTP) != 1 {
 					// there is no websocket layer waiting for connections, redirect it
 					log.Error("incoming http request, but no websocket server is listening")
-					s.redir.Redirect(&redirector.Redirection{
-						InboundConn: rewindConn,
-						RedirectTo:  s.fallbackAddress,
-					})
+					// P1-1b: handshake succeeded — pass the real
+					// ConnectionState so SNI/ALPN-aware rules can route
+					// active probes that complete TLS but speak the
+					// wrong upper-layer protocol.
+					st := tlsConn.ConnectionState()
+					s.dispatchFallback(rewindConn, &st)
 					return
 				}
 				// this is a http request, pass it to websocket protocol layer
@@ -193,6 +199,42 @@ func (s *Server) acceptLoop() {
 			}
 		}(conn)
 	}
+}
+
+// dispatchFallback resolves the SNI/ALPN-matched fallback rule, wraps the
+// supplied connection in a ruleConn so downstream layers can recover the
+// rule via fallback.Unwrap, and pushes the redirect request. P1-1b: when
+// no rule matches and no default exists, fall back to the legacy
+// fallbackAddress (still populated from FallbackHost/FallbackPort) so
+// pre-migration configs keep working unchanged.
+//
+// `state` may be nil for the failed-handshake path, in which case
+// SNI/ALPN are unknown and only the default rule (or legacy fallback)
+// applies.
+func (s *Server) dispatchFallback(conn net.Conn, state *tls.ConnectionState) {
+	var sni, alpn string
+	if state != nil {
+		sni = state.ServerName
+		alpn = state.NegotiatedProtocol
+	}
+	rule := fallback.Match(s.fallbackRules, sni, alpn)
+	if rule != nil {
+		s.redir.Redirect(&redirector.Redirection{
+			InboundConn: &ruleConn{Conn: conn, rule: rule},
+			RedirectTo:  tunnel.NewAddressFromHostPort("tcp", rule.Addr, rule.Port),
+		})
+		return
+	}
+	if s.fallbackAddress != nil {
+		s.redir.Redirect(&redirector.Redirection{
+			InboundConn: conn,
+			RedirectTo:  s.fallbackAddress,
+		})
+		return
+	}
+	// No rule, no legacy fallback, no http_response: drop. The matching
+	// log line is emitted by the caller (it has more context).
+	_ = conn.Close()
 }
 
 // offer pushes c onto ch without ever blocking the accept goroutine.
@@ -331,6 +373,16 @@ func loadKeyPair(keyPath string, certPath string, password string) (*tls.Certifi
 func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
 
+	// P1-1a/b: build the structured rule list and translate the legacy
+	// FallbackHost/FallbackPort pair to a default rule when the new
+	// `fallback:` list is unset. Validation drops malformed entries; warn
+	// once if the operator's input was partially rejected.
+	parsed := fallback.RulesFromConfig(cfg.TLS.Fallback)
+	if len(parsed) != len(cfg.TLS.Fallback) {
+		log.Warn("tls: dropped", len(cfg.TLS.Fallback)-len(parsed), "invalid fallback rules; check addr/port/proxy_protocol fields")
+	}
+	rules := fallback.MergeRules(parsed, cfg.TLS.FallbackHost, cfg.TLS.FallbackPort)
+
 	var fallbackAddress *tunnel.Address
 	var httpResp []byte
 	if cfg.TLS.FallbackPort != 0 {
@@ -344,7 +396,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 			return nil, common.NewError("invalid fallback address").Base(err)
 		}
 		fallbackConn.Close()
-	} else {
+	} else if len(rules) == 0 {
 		log.Warn("empty tls fallback port")
 		if cfg.TLS.HTTPResponseFileName != "" {
 			httpRespBody, err := os.ReadFile(cfg.TLS.HTTPResponseFileName)
@@ -382,6 +434,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	server := &Server{
 		underlay:           underlay,
 		fallbackAddress:    fallbackAddress,
+		fallbackRules:      rules,
 		httpResp:           httpResp,
 		verifySNI:          cfg.TLS.VerifyHostName,
 		sni:                cfg.TLS.SNI,
