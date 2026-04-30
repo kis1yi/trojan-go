@@ -106,6 +106,6 @@ func (c *PacketConn) Record(addr net.Addr, payload []byte) {
 	if userHash == "" {
 		return
 	}
-	log.Debug("user", userHash, "from", c.RemoteAddr(), "tunneling UDP to", addr)
+	log.Debug("user", log.RedactHash(userHash), "from", c.RemoteAddr(), "tunneling UDP to", addr)
 	recorder.Add(userHash, c.RemoteAddr(), addr, "UDP", payload)
 }

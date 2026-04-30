@@ -2,10 +2,12 @@ package trojan
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/kis1yi/trojan-go/api"
 	"github.com/kis1yi/trojan-go/common"
@@ -59,22 +61,54 @@ func (c *InboundConn) Read(p []byte) (int, error) {
 }
 
 func (c *InboundConn) Close() error {
-	log.Debug("user", c.hash, "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address, "closed",
+	log.Debug("user", log.RedactHash(c.hash), "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address, "closed",
 		"sent:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.sent)), "recv:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.recv)))
 	c.user.DelIP(c.ip)
 	return c.Conn.Close()
 }
 
+// TrojanAuthTimeout bounds how long the server is willing to wait for a
+// client to send the 56-byte hash + CRLF + metadata block. Censorship probes
+// commonly hold the connection open without writing any auth bytes; without a
+// deadline this would tie up an accept goroutine indefinitely. The value is
+// intentionally short (4 s) to match the placeholder bar called out in the
+// 2026 hardening plan; the unified-deadline work in P0-1 will replace this
+// with a configurable field. It is declared as a var (not const) so tests can
+// shrink it without sleeping for the production default.
+var TrojanAuthTimeout = 4 * time.Second
+
 func (c *InboundConn) Auth() error {
+	// Bound the time spent reading the auth header. The deadline is cleared
+	// before returning (success or failure) so that long-lived tunnels do not
+	// inherit the short auth deadline and the fallback path does not hand a
+	// nearly-expired deadline to the redirector backend.
+	if err := c.Conn.SetReadDeadline(time.Now().Add(TrojanAuthTimeout)); err != nil {
+		// Some net.Conn implementations (e.g. exotic mocks in tests) may not
+		// support deadlines. Log at Debug and continue — a missing deadline
+		// only weakens the slow-loris protection, it does not corrupt the
+		// handshake.
+		log.Debug("trojan: SetReadDeadline failed:", err)
+	}
+	authOK := false
+	defer func() {
+		if !authOK {
+			// Always clear the deadline on failure so the fallback path that
+			// rewinds and redirects this connection starts with a clean
+			// slate. Errors are intentionally ignored here.
+			_ = c.Conn.SetReadDeadline(time.Time{})
+		}
+	}()
+
 	userHash := [56]byte{}
-	n, err := c.Conn.Read(userHash[:])
-	if err != nil || n != 56 {
+	if _, err := io.ReadFull(c.Conn, userHash[:]); err != nil {
 		return common.NewError("failed to read hash").Base(err)
 	}
 
 	valid, user := c.auth.AuthUser(string(userHash[:]))
 	if !valid {
-		return common.NewError("invalid hash:" + string(userHash[:]))
+		// userHash is arbitrary client-controlled bytes — sanitise to hex
+		// before redacting so log lines stay single-line and printable.
+		return common.NewError("invalid hash:" + log.RedactHash(hex.EncodeToString(userHash[:])))
 	}
 	c.hash = string(userHash[:])
 	c.user = user
@@ -83,33 +117,40 @@ func (c *InboundConn) Auth() error {
 	if err != nil {
 		return common.NewError("failed to parse host:" + c.Conn.RemoteAddr().String()).Base(err)
 	}
-
 	c.ip = ip
-	ok := user.AddIP(ip)
-	if !ok {
-		return common.NewError("ip limit reached")
-	}
 
 	crlf := [2]byte{}
-	_, err = io.ReadFull(c.Conn, crlf[:])
-	if err != nil {
-		return err
+	if _, err = io.ReadFull(c.Conn, crlf[:]); err != nil {
+		return common.NewError("failed to read crlf after hash").Base(err)
 	}
 
 	c.metadata = &tunnel.Metadata{}
 	if err := c.metadata.Unmarshal(c.Conn); err != nil {
-		return err
+		return common.NewError("failed to read trojan metadata").Base(err)
 	}
 
-	_, err = io.ReadFull(c.Conn, crlf[:])
-	if err != nil {
-		return err
+	if _, err = io.ReadFull(c.Conn, crlf[:]); err != nil {
+		return common.NewError("failed to read crlf after metadata").Base(err)
+	}
+
+	// Defer IP-limit accounting until after metadata parsing succeeds; if the
+	// limit is full, the connection is closed before any traffic can flow.
+	if !user.AddIP(ip) {
+		c.ip = ""
+		return common.NewError("ip limit reached")
+	}
+
+	authOK = true
+	// Clear the auth deadline now that the handshake is complete; long-lived
+	// tunnels must not inherit the short deadline.
+	if err := c.Conn.SetReadDeadline(time.Time{}); err != nil {
+		log.Debug("trojan: clear read deadline failed:", err)
 	}
 	return nil
 }
 
 func (c *InboundConn) Record() {
-	log.Debug("user", c.hash, "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address)
+	log.Debug("user", log.RedactHash(c.hash), "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address)
 	recorder.Add(c.hash, c.Conn.RemoteAddr(), c.metadata.Address, "TCP", nil)
 }
 

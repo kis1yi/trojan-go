@@ -251,22 +251,31 @@ func loadKeyPair(keyPath string, certPath string, password string) (*tls.Certifi
 		}
 		keyBlock, _ := pem.Decode(keyFile)
 		if keyBlock == nil {
-			return nil, common.NewError("failed to decode key file").Base(err)
+			return nil, common.NewError("failed to decode key file")
 		}
+		// NOTE: x509.DecryptPEMBlock is deprecated since Go 1.16 because the
+		// underlying RFC 1423 PEM encryption is insecure. Modern PKCS#8 keys
+		// (e.g. produced by `openssl pkcs8 -topk8`) are not supported here;
+		// migrating callers to a stronger KDF is tracked as a follow-up.
 		decryptedKey, err := x509.DecryptPEMBlock(keyBlock, []byte(password))
-		if err == nil {
+		if err != nil {
 			return nil, common.NewError("failed to decrypt key").Base(err)
 		}
+		// DecryptPEMBlock returns DER bytes; tls.X509KeyPair expects PEM, so
+		// re-wrap the decrypted DER in a PEM block of the original type.
+		keyPEM := pem.EncodeToMemory(&pem.Block{
+			Type:  keyBlock.Type,
+			Bytes: decryptedKey,
+		})
 
 		certFile, err := os.ReadFile(certPath)
-		certBlock, _ := pem.Decode(certFile)
-		if certBlock == nil {
-			return nil, common.NewError("failed to decode cert file").Base(err)
+		if err != nil {
+			return nil, common.NewError("failed to load cert file").Base(err)
 		}
 
-		keyPair, err := tls.X509KeyPair(certBlock.Bytes, decryptedKey)
+		keyPair, err := tls.X509KeyPair(certFile, keyPEM)
 		if err != nil {
-			return nil, err
+			return nil, common.NewError("failed to load key pair").Base(err)
 		}
 		keyPair.Leaf, err = x509.ParseCertificate(keyPair.Certificate[0])
 		if err != nil {

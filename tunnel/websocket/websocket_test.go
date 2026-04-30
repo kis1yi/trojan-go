@@ -52,9 +52,12 @@ func TestWebsocket(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		conn2, err = s.AcceptConn(nil)
-		common.Must(err)
-		wg.Done()
+		defer wg.Done()
+		var acceptErr error
+		conn2, acceptErr = s.AcceptConn(nil)
+		if acceptErr != nil {
+			t.Error(acceptErr)
+		}
 	}()
 	time.Sleep(time.Second)
 	conn1, err := c.DialConn(nil, nil)

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -104,11 +105,11 @@ func (u *User) GetIPLimit() int {
 }
 
 func (u *User) GetQuota() int64 {
-	return u.quota
+	return atomic.LoadInt64(&u.quota)
 }
 
 func (u *User) SetQuota(quota int64) {
-	u.quota = quota
+	atomic.StoreInt64(&u.quota, quota)
 }
 
 func (u *User) AddSentTraffic(sent int) {
@@ -187,8 +188,10 @@ func (u *User) speedUpdater() {
 			return
 		case <-ticker.C:
 			sent, recv := u.GetTraffic()
-			atomic.StoreUint64(&u.sendSpeed, sent-u.lastSent)
-			atomic.StoreUint64(&u.recvSpeed, recv-u.lastRecv)
+			lastSent := atomic.LoadUint64(&u.lastSent)
+			lastRecv := atomic.LoadUint64(&u.lastRecv)
+			atomic.StoreUint64(&u.sendSpeed, sent-lastSent)
+			atomic.StoreUint64(&u.recvSpeed, recv-lastRecv)
 			atomic.StoreUint64(&u.lastSent, sent)
 			atomic.StoreUint64(&u.lastRecv, recv)
 		}
@@ -206,10 +209,10 @@ func (u *User) trafficUpdater(pst statistic.Persistencer) {
 			if pst != nil {
 				sent, recv := u.GetTraffic()
 				if sent != lastSent || recv != lastRecv {
-					log.Debugf("Update %s traffic", u.Hash)
+					log.Debugf("Update %s traffic", log.RedactHash(u.Hash))
 					err := pst.UpdateUserTraffic(u.Hash, sent, recv)
 					if err != nil {
-						log.Debugf("Update user %s traffic failed: %s", u.Hash, err)
+						log.Debugf("Update user %s traffic failed: %s", log.RedactHash(u.Hash), err)
 						continue
 					}
 					lastRecv = recv
@@ -225,9 +228,10 @@ func (u *User) GetSpeed() (uint64, uint64) {
 }
 
 type Authenticator struct {
-	users sync.Map
-	pst   statistic.Persistencer
-	ctx   context.Context
+	users  sync.Map
+	pst    statistic.Persistencer
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func (a *Authenticator) AuthUser(hash string) (bool, statistic.User) {
@@ -254,7 +258,7 @@ func (a *Authenticator) AddUser(hash string) error {
 		go meter.trafficUpdater(a.pst)
 		err := a.pst.SaveUser(meter)
 		if err != nil {
-			log.Errorf("Save user %s failed: %s", hash, err)
+			log.Errorf("Save user %s failed: %s", log.RedactHash(hash), err)
 		}
 	}
 	return nil
@@ -283,6 +287,18 @@ func (a *Authenticator) ListUsers() []statistic.User {
 }
 
 func (a *Authenticator) Close() error {
+	if a.cancel != nil {
+		a.cancel()
+	}
+	a.users.Range(func(k, v interface{}) bool {
+		v.(*User).Close()
+		return true
+	})
+	if closer, ok := a.pst.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			return common.NewError("failed to close persistencer").Base(err)
+		}
+	}
 	return nil
 }
 
@@ -296,7 +312,7 @@ func (a *Authenticator) SetUserTraffic(hash string, sent, recv uint64) error {
 	if a.pst != nil {
 		err := a.pst.SaveUser(user)
 		if err != nil {
-			log.Errorf("Save user %s failed: %s", hash, err)
+			log.Errorf("Save user %s failed: %s", log.RedactHash(hash), err)
 		}
 	}
 	return nil
@@ -312,7 +328,7 @@ func (a *Authenticator) SetUserSpeedLimit(hash string, send, recv int) error {
 	if a.pst != nil {
 		err := a.pst.SaveUser(user)
 		if err != nil {
-			log.Errorf("Save user %s failed: %s", hash, err)
+			log.Errorf("Save user %s failed: %s", log.RedactHash(hash), err)
 		}
 	}
 	return nil
@@ -328,7 +344,7 @@ func (a *Authenticator) SetUserIPLimit(hash string, limit int) error {
 	if a.pst != nil {
 		err := a.pst.SaveUser(user)
 		if err != nil {
-			log.Errorf("Save user %s failed: %s", hash, err)
+			log.Errorf("Save user %s failed: %s", log.RedactHash(hash), err)
 		}
 	}
 	return nil
@@ -344,7 +360,7 @@ func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
 	if a.pst != nil {
 		err := a.pst.SaveUser(user)
 		if err != nil {
-			log.Errorf("Save user %s failed: %s", hash, err)
+			log.Errorf("Save user %s failed: %s", log.RedactHash(hash), err)
 		}
 	}
 	return nil
@@ -352,9 +368,8 @@ func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
 
 func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
-	a := &Authenticator{
-		ctx: ctx,
-	}
+	a := &Authenticator{}
+	a.ctx, a.cancel = context.WithCancel(ctx)
 	var err error
 	if cfg.Sqlite != "" {
 		a.pst, err = sqlite.NewSqlitePersistencer(cfg.Sqlite)
@@ -365,7 +380,7 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	if a.pst != nil {
 		err := a.pst.ListUser(func(hash string, u statistic.Metadata) bool {
 			if _, found := a.users.Load(hash); found {
-				log.Error("hash " + hash + " is already exist")
+			log.Error("hash " + log.RedactHash(hash) + " is already exist")
 				return true
 			}
 			ctx, cancel := context.WithCancel(a.ctx)

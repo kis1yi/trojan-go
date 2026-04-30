@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glebarez/sqlite"
+	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/statistic"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -100,4 +101,20 @@ func (p *Persistencer) UpdateUserTraffic(hash string, sent, recv uint64) error {
 	u.setSent(sent)
 	u.setRecv(recv)
 	return p.db.Model(&User{Hash: hash}).Updates(u).Error
+}
+
+// Close releases the underlying database handle. It is safe to call after
+// Authenticator.Close.
+func (p *Persistencer) Close() error {
+	if p == nil || p.db == nil {
+		return nil
+	}
+	sqlDB, err := p.db.DB()
+	if err != nil {
+		return common.NewError("sqlite: failed to obtain *sql.DB").Base(err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		return common.NewError("sqlite: failed to close *sql.DB").Base(err)
+	}
+	return nil
 }

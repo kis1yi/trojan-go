@@ -32,3 +32,7 @@ func (p *Persistencer) ListUser(f func(hash string, u statistic.Metadata) bool) 
 func (p *Persistencer) UpdateUserTraffic(hash string, sent, recv uint64) error {
 	return nil
 }
+
+func (p *Persistencer) Close() error {
+	return nil
+}
