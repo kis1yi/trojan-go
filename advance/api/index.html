@@ -49,7 +49,7 @@ You need to add API settings to the server configuration you want to control, fo
   Trojan-Go itself has integrated API control functionality, meaning you can use one Trojan-Go instance to manage another Trojan-Go server.
 You need to add API settings to the server configuration you want to control, for example:">
 
-<meta itemprop="wordCount" content="506"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="859"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -90,9 +90,12 @@ You need to add API settings to the server configuration you want to control, fo
         <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">true</span>,
         <span style="color:#f92672">&#34;api_addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>,
         <span style="color:#f92672">&#34;api_port&#34;</span>: <span style="color:#ae81ff">10000</span>,
+        <span style="color:#f92672">&#34;allow_payload_capture&#34;</span>: <span style="color:#66d9ef">false</span>
     }
 }
-</code></pre></div><p>Then start the Trojan-Go server:</p>
+</code></pre></div><p><code>allow_payload_capture</code> defaults to <code>false</code> and should be left at <code>false</code> for production deployments. It is only honoured by binaries built with the <code>apidebug</code> build tag; default release builds silently downgrade <code>GetRecords</code> to metadata-only streaming regardless of the request&rsquo;s <code>IncludePayload</code> flag, so production scripts cannot accidentally leak connection bytes. With the <code>apidebug</code> tag and the flag set to <code>false</code>, <code>GetRecords</code> returns <code>PermissionDenied</code> so the misconfiguration is loud rather than silent.</p>
+<p>When <code>api_addr</code> is bound to a non-loopback interface, trojan-go logs a <code>WARN</code> at startup if TLS is not enabled, and a separate <code>WARN</code> if TLS is enabled but <code>verify_client</code> is off. The server is not refused so existing private-network deployments keep working, but the operator should treat such a setup as world-readable and mTLS-protect any internet-reachable API endpoint.</p>
+<p>Then start the Trojan-Go server:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -config ./server.json
 </code></pre></div><p>Then you can use another Trojan-Go to connect to the server for management. The basic command format is:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr SERVER_API_ADDRESS -api COMMAND
@@ -144,19 +147,26 @@ You need to add API settings to the server configuration you want to control, fo
 </span><span style="color:#ae81ff"></span>    -download-speed-limit <span style="color:#ae81ff">5242880</span> <span style="color:#ae81ff">\
 </span><span style="color:#ae81ff"></span>    -quota <span style="color:#ae81ff">10737418240</span>
 </code></pre></div><p>This command limits the upload and download speed of the user with password &ldquo;password&rdquo; to 5 MiB/s, limits the number of simultaneously connected IPs to 3, and sets the traffic quota to 10 GiB (10737418240 bytes). Note that speed values are in bytes per second. If 0 or a negative number is entered for speed or IP limit, it means no limit.</p>
+<p>The CLI distinguishes between &ldquo;flag omitted&rdquo; and &ldquo;flag explicitly set to its zero value&rdquo;. Only flags that you actually pass on the command line are sent in the request — fields you do not mention are left untouched on the server side. In particular, <code>trojan-go -api set -modify-profile -target-password password -ip-limit 3</code> does <strong>not</strong> zero out the user&rsquo;s existing quota; the <code>quota</code> field is simply not included in the request.</p>
 </li>
 <li>
 <p>Manage a user&rsquo;s quota</p>
 <p>Quota can be read from the <code>quota</code> field in the <code>get</code> or <code>list</code> response. To set or modify a user&rsquo;s quota via the CLI:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./trojan-go -api-addr 127.0.0.1:10000 -api set -modify-profile -target-password password -quota <span style="color:#ae81ff">10737418240</span>
 </code></pre></div><p>This sets the quota for the user with password &ldquo;password&rdquo; to 10 GiB (10737418240 bytes).</p>
-<p>Quota semantics: negative = unlimited, <code>0</code> = user disabled (no traffic allowed), positive = byte limit (user is blocked once <code>download + upload &gt;= quota</code>).</p>
+<p>Quota semantics:</p>
+<ul>
+<li><strong>Negative</strong> value (typically <code>-1</code>) — unlimited. Newly created users start at <code>-1</code> so a static <code>password</code> list in the YAML/JSON config keeps authenticating.</li>
+<li><strong><code>0</code></strong> — user is disabled. Authentication is rejected and any active tunnel is closed via the per-user cutoff signal.</li>
+<li><strong>Positive</strong> value — byte limit. Once <code>download + upload &gt;= quota</code> the user&rsquo;s active tunnel is closed in-flight (within ~1 second of crossing the threshold) rather than at the next polling tick.</li>
+</ul>
+<p>On the wire, the proto3 <code>quota</code> field is <code>optional int64</code>, so callers can distinguish &ldquo;field absent&rdquo; (leave existing value as is) from &ldquo;field present with value 0&rdquo; (explicitly disable the user). Add with omitted quota leaves the user at the default <code>-1</code>; Add with explicit <code>quota=0</code> disables the user; Modify with omitted quota preserves the previous value; Modify with explicit <code>quota=0</code> disables the user. The CLI uses <code>flag.Visit</code> to enforce the same convention — <code>-quota</code> is only sent when you pass it on the command line. Downstream Go gRPC consumers should regenerate their stubs: <code>UserStatus.Quota</code> is now <code>*int64</code> with the standard <code>GetQuota()</code> accessor.</p>
 </li>
 </ol>
 <div class="edit-meta">
 
 <br><a href="https://github.com/kis1yi/trojan-go/docs/edit/master/content/advance/api.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://kis1yi.github.io/trojan-go/advance/aead/" title="Secondary Encryption with Shadowsocks AEAD"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Secondary Encryption with Shadowsocks AEAD</a>
-<a class="nav nav-next" href="https://kis1yi.github.io/trojan-go/advance/nat/" title="Transparent Proxy">Next - Transparent Proxy <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+<a class="nav nav-next" href="https://kis1yi.github.io/trojan-go/advance/tls/" title="Advanced TLS Settings: Fingerprints, ALPN, and ECH">Next - Advanced TLS Settings: Fingerprints, ALPN, and ECH <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
 </nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
 </footer>
 </main><div class="sidebar">
@@ -187,6 +197,7 @@ You need to add API settings to the server configuration you want to control, fo
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
 <li class="active"><a href="https://kis1yi.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/tls/">Advanced TLS Settings: Fingerprints, ALPN, and ECH</a></li>
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
 </ul>
   

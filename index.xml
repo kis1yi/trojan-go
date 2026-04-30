@@ -134,6 +134,16 @@ You need to add API settings to the server configuration you want to control, fo
     </item>
     
     <item>
+      <title>Advanced TLS Settings: Fingerprints, ALPN, and ECH</title>
+      <link>https://kis1yi.github.io/trojan-go/advance/tls/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://kis1yi.github.io/trojan-go/advance/tls/</guid>
+      <description>This page documents the TLS-layer knobs that affect how a trojan-go client talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN list, and the ECH (Encrypted Client Hello) modes. The corresponding configuration fields live under the ssl block — see Complete Configuration File for the full schema.
+The behaviour described here is exercised by the tunnel/tls regression tests; in particular, the default fingerprint is locked by TestDefaultFingerprintIsChrome, so it will not change silently between releases.</description>
+    </item>
+    
+    <item>
       <title>Transparent Proxy</title>
       <link>https://kis1yi.github.io/trojan-go/advance/nat/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>

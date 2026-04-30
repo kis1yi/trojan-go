@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Advanced TLS Settings: Fingerprints, ALPN, and ECH - Trojan-Go Docs</title>
+<meta name="description" content="An unidentifiable mechanism that helps you bypass GFW.">
+<meta name="generator" content="Hugo 0.83.1" />
+<link href="https://kis1yi.github.io/trojan-goindex.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="https://kis1yi.github.io/trojan-go/advance/tls/">
+<link rel="stylesheet" href="https://kis1yi.github.io/trojan-go/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="https://kis1yi.github.io/trojan-go/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="https://kis1yi.github.io/trojan-go/js/bundle.js"></script><style>
+:root {}
+</style>
+<meta property="og:title" content="Advanced TLS Settings: Fingerprints, ALPN, and ECH" />
+<meta property="og:description" content="This page documents the TLS-layer knobs that affect how a trojan-go client talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN list, and the ECH (Encrypted Client Hello) modes. The corresponding configuration fields live under the ssl block — see Complete Configuration File for the full schema.
+The behaviour described here is exercised by the tunnel/tls regression tests; in particular, the default fingerprint is locked by TestDefaultFingerprintIsChrome, so it will not change silently between releases." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://kis1yi.github.io/trojan-go/advance/tls/" /><meta property="og:image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/><meta property="article:section" content="advance" />
+
+<meta property="og:site_name" content="Trojan-Go Docs" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+
+<meta name="twitter:title" content="Advanced TLS Settings: Fingerprints, ALPN, and ECH"/>
+<meta name="twitter:description" content="This page documents the TLS-layer knobs that affect how a trojan-go client talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN list, and the ECH (Encrypted Client Hello) modes. The corresponding configuration fields live under the ssl block — see Complete Configuration File for the full schema.
+The behaviour described here is exercised by the tunnel/tls regression tests; in particular, the default fingerprint is locked by TestDefaultFingerprintIsChrome, so it will not change silently between releases."/>
+<meta itemprop="name" content="Advanced TLS Settings: Fingerprints, ALPN, and ECH">
+<meta itemprop="description" content="This page documents the TLS-layer knobs that affect how a trojan-go client talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN list, and the ECH (Encrypted Client Hello) modes. The corresponding configuration fields live under the ssl block — see Complete Configuration File for the full schema.
+The behaviour described here is exercised by the tunnel/tls regression tests; in particular, the default fingerprint is locked by TestDefaultFingerprintIsChrome, so it will not change silently between releases.">
+
+<meta itemprop="wordCount" content="608"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="keywords" content="" /></head>
+<body><div class="container"><header>
+<h1>Trojan-Go Docs</h1>
+<a href="https://github.com/kis1yi/trojan-go" class="github"><i class="fab fa-github"></i></a>
+<p class="description">An unidentifiable mechanism that helps you bypass GFW.</p>
+
+</header>
+<div class="global-menu">
+<nav>
+<ul>
+<li><a href="/trojan-go/">Home</a></li>
+<li><a href="https://github.com/kis1yi">GitHub</a></li></ul>
+</nav>
+</div>
+<div class="content-container">
+<main><h1>Advanced TLS Settings: Fingerprints, ALPN, and ECH</h1>
+<p>This page documents the TLS-layer knobs that affect how a trojan-go <strong>client</strong>
+talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN
+list, and the ECH (Encrypted Client Hello) modes. The corresponding
+configuration fields live under the <code>ssl</code> block — see
+<a href="../../basic/full-config">Complete Configuration File</a> for the full schema.</p>
+<p>The behaviour described here is exercised by the <code>tunnel/tls</code> regression
+tests; in particular, the default fingerprint is locked by
+<code>TestDefaultFingerprintIsChrome</code>, so it will not change silently between
+releases.</p>
+<h3 id="default-fingerprint">Default fingerprint</h3>
+<p>Trojan-go uses <a href="https://github.com/refraction-networking/utls">utls</a> to forge
+a browser-shaped TLS Client Hello. The fingerprint controls the cipher list,
+extension order, supported groups, and other observable bytes that censors
+use to single out non-browser TLS clients.</p>
+<table>
+<thead>
+<tr>
+<th><code>fingerprint</code> value</th>
+<th>utls ClientHelloID</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&quot;&quot;</code> (default)</td>
+<td><code>HelloChrome_Auto</code></td>
+<td>Resolves to <code>chrome</code>. Stable since 2024.</td>
+</tr>
+<tr>
+<td><code>&quot;chrome&quot;</code></td>
+<td><code>HelloChrome_Auto</code></td>
+<td>Default.</td>
+</tr>
+<tr>
+<td><code>&quot;firefox&quot;</code></td>
+<td><code>HelloFirefox_Auto</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>&quot;ios&quot;</code></td>
+<td><code>HelloIOS_Auto</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>&quot;edge&quot;</code></td>
+<td><code>HelloEdge_Auto</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>&quot;safari&quot;</code></td>
+<td><code>HelloSafari_Auto</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>&quot;360browser&quot;</code></td>
+<td><code>Hello360_Auto</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>&quot;qqbrowser&quot;</code></td>
+<td><code>HelloQQ_Auto</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Names are case-insensitive. Any other value is rejected at startup with a
+descriptive error.</p>
+<p>When a fingerprint is selected, the <code>cipher</code>, <code>curves</code>, <code>alpn</code>, and
+<code>session_ticket</code> fields are overwritten with the fingerprint&rsquo;s canonical
+values — do not try to mix and match. If you need to override one of those
+fields, leave <code>fingerprint</code> empty and set every related field by hand;
+expect the resulting handshake to be detectable as non-browser traffic.</p>
+<h3 id="ech-grease-vs-full-ech">ECH GREASE vs. full ECH</h3>
+<p><code>ech</code> enables Encrypted Client Hello. There are two distinct modes, and they
+have very different threat models:</p>
+<ul>
+<li>
+<p><strong>GREASE ECH</strong> (<code>ech: true</code>, <code>ech_config: &quot;&quot;</code>):
+trojan-go injects a syntactically valid but cryptographically meaningless
+ECH extension into the Client Hello. The real SNI is <strong>not</strong> encrypted;
+it still travels in plaintext in the outer Client Hello. The point is to
+make the trojan-go handshake indistinguishable from Chrome with ECH
+enabled, defeating fingerprinters that flag &ldquo;no ECH extension&rdquo; as a
+signal. Use this mode when the destination is a normal HTTPS origin that
+does not advertise ECH.</p>
+</li>
+<li>
+<p><strong>Full ECH</strong> (<code>ech: true</code>, <code>ech_config: &quot;&lt;base64 ECHConfigList&gt;&quot;</code>):
+trojan-go performs a real ECH handshake. The inner Client Hello (with
+the real SNI) is encrypted to the public key in the ECHConfigList and
+embedded in the outer Client Hello, whose SNI is the public name from
+the ECHConfigList. Use this mode only when the destination explicitly
+publishes an ECHConfigList (typically via the HTTPS DNS record).</p>
+</li>
+</ul>
+<p>If <code>ech_config</code> is set but <code>ech</code> is <code>false</code>, the config is silently ignored
+with a <code>WARN</code> at startup; this is an operator mistake, not a feature.</p>
+<h4 id="cdn-and-alpn-caveats">CDN and ALPN caveats</h4>
+<ul>
+<li>CDNs do not, in general, support ECH. With most CDN deployments, full ECH
+will fail the handshake or land you on the wrong virtual host. Stick to
+GREASE ECH (or no ECH) when fronting through a CDN.</li>
+<li>The <code>alpn</code> list is purely cosmetic at the TLS layer — trojan-go does not
+multiplex on the negotiated protocol. However, <strong>CDNs do honour ALPN</strong>:
+if the configured ALPN does not match what the CDN expects (typically
+<code>[&quot;h2&quot;, &quot;http/1.1&quot;]</code>), the CDN may upgrade or downgrade the inner
+protocol and break the trojan tunnel. When using a fingerprint, the
+fingerprint&rsquo;s canonical ALPN already matches the impersonated browser;
+leaving <code>alpn</code> unset is the safe choice.</li>
+<li>ECH GREASE only changes the Client Hello shape; it does not improve
+confidentiality of the SNI through a plain TLS terminator. If your
+threat model requires SNI confidentiality, use full ECH against an
+ECH-aware origin or an in-network rendezvous (out of scope for this
+document).</li>
+</ul>
+<h3 id="single-source-of-truth">Single source of truth</h3>
+<p>The list of supported fingerprint names lives in
+<code>tunnel/tls/client.go</code> (<code>resolveFingerprint</code>). When adding or removing a
+value, update:</p>
+<ol>
+<li>The <code>resolveFingerprint</code> switch.</li>
+<li>The error message returned by <code>resolveFingerprint</code> for unknown values.</li>
+<li>The table in this document.</li>
+<li>The list under <code>fingerprint</code> in
+<a href="../../basic/full-config">Complete Configuration File</a>.</li>
+<li>The <code>TestResolveFingerprintKnownNames</code> test in
+<code>tunnel/tls/fingerprint_default_test.go</code>.</li>
+</ol>
+<div class="edit-meta">
+
+<br><a href="https://github.com/kis1yi/trojan-go/docs/edit/master/content/advance/tls.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://kis1yi.github.io/trojan-go/advance/api/" title="Dynamic User Management via API"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Dynamic User Management via API</a>
+<a class="nav nav-next" href="https://kis1yi.github.io/trojan-go/advance/nat/" title="Transparent Proxy">Next - Transparent Proxy <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer><p class="powered">Powered by <a href="https://gohugo.io">Hugo</a>. Theme by <a href="https://themes.gohugo.io/hugo-theme-techdoc/">TechDoc</a>. Designed by <a href="https://github.com/thingsym/hugo-theme-techdoc">Thingsym</a>.</p>
+</footer>
+</main><div class="sidebar">
+
+<nav class="open-menu">
+<ul>
+<li class=""><a href="https://kis1yi.github.io/trojan-go">Home</a></li>
+
+<li class=""><a href="https://kis1yi.github.io/trojan-go/basic/">Basic Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://kis1yi.github.io/trojan-go/basic/trojan/">Basic Principles of Trojan</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/basic/config/">Correctly Configuring Trojan-Go</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/basic/full-config/">Complete Configuration File</a></li>
+</ul>
+  
+</li>
+
+<li class="parent"><a href="https://kis1yi.github.io/trojan-go/advance/">Advanced Configuration</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/mux/">Enable Multiplexing to Improve Network Concurrency Performance</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/websocket/">Using WebSocket for CDN Relay and Resistance Against Man-in-the-Middle Attacks</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/router/">Domestic Direct Connection and Ad Blocking</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/forward/">Tunneling and Reverse Proxy</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/nginx-relay/">A Multi-Path Traffic Splitting Relay Scheme Based on SNI Proxy</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/plugin/">Using Shadowsocks Plugins / Pluggable Transport Layer</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class="active"><a href="https://kis1yi.github.io/trojan-go/advance/tls/">Advanced TLS Settings: Fingerprints, ALPN, and ECH</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/">Implementation Details and Developer Guide</a>
+  
+<ul class="sub-menu">
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/overview/">Overview</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/build/">Building and Customizing Trojan-Go</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/trojan/">Trojan Protocol</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/mux/">Multiplexing</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/websocket/">WebSocket</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/simplesocks/">SimpleSocks Protocol</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/api/">API Development</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/plugin/">Pluggable Transport Layer Plugin Development</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/developer/url/">URL Scheme (Draft)</a></li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

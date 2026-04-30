@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="3169"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="4122"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -126,6 +126,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;plain_http_response&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;fallback_addr&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;fallback_port&#34;</span>: <span style="color:#ae81ff">0</span>,
+    <span style="color:#f92672">&#34;fallback&#34;</span>: [],
     <span style="color:#f92672">&#34;fingerprint&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;ech&#34;</span>: <span style="color:#66d9ef">false</span>,
     <span style="color:#f92672">&#34;ech_config&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>
@@ -186,12 +187,14 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;database&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;username&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;password&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
-    <span style="color:#f92672">&#34;check_rate&#34;</span>: <span style="color:#ae81ff">60</span>
+    <span style="color:#f92672">&#34;check_rate&#34;</span>: <span style="color:#ae81ff">60</span>,
+    <span style="color:#f92672">&#34;query_timeout&#34;</span>: <span style="color:#ae81ff">5</span>
   },
   <span style="color:#f92672">&#34;api&#34;</span>: {
     <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
     <span style="color:#f92672">&#34;api_addr&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;api_port&#34;</span>: <span style="color:#ae81ff">0</span>,
+    <span style="color:#f92672">&#34;allow_payload_capture&#34;</span>: <span style="color:#66d9ef">false</span>,
     <span style="color:#f92672">&#34;ssl&#34;</span>: {
       <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
       <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
@@ -199,6 +202,18 @@ Trojan-Go supports the more human-friendly YAML syntax.">
       <span style="color:#f92672">&#34;verify_client&#34;</span>: <span style="color:#66d9ef">false</span>,
       <span style="color:#f92672">&#34;client_cert&#34;</span>: []
     }
+  },
+  <span style="color:#f92672">&#34;timeout&#34;</span>: {
+    <span style="color:#f92672">&#34;tls_handshake&#34;</span>: <span style="color:#ae81ff">10</span>,
+    <span style="color:#f92672">&#34;trojan_auth&#34;</span>: <span style="color:#ae81ff">4</span>,
+    <span style="color:#f92672">&#34;tcp_relay_idle&#34;</span>: <span style="color:#ae81ff">300</span>,
+    <span style="color:#f92672">&#34;udp_session_idle&#34;</span>: <span style="color:#ae81ff">60</span>,
+    <span style="color:#f92672">&#34;fallback_dial&#34;</span>: <span style="color:#ae81ff">5</span>,
+    <span style="color:#f92672">&#34;fallback_idle&#34;</span>: <span style="color:#ae81ff">30</span>
+  },
+  <span style="color:#f92672">&#34;queue&#34;</span>: {
+    <span style="color:#f92672">&#34;accept_queue_size&#34;</span>: <span style="color:#ae81ff">256</span>,
+    <span style="color:#f92672">&#34;max_conn_per_user&#34;</span>: <span style="color:#ae81ff">0</span>
   }
 }
 </code></pre></div><h2 id="description">Description</h2>
@@ -235,35 +250,72 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>verify_hostname</code> indicates whether the server verifies that the SNI provided by the client is consistent with the server&rsquo;s setting. If the server SNI field is left blank, authentication is forcibly disabled.</p>
 <p>The server must fill in <code>cert</code> and <code>key</code>, corresponding to the server&rsquo;s certificate and private key files. Please check whether the certificate is valid/expired. If using a certificate signed by an authoritative CA, the client (client/nat/forward) does not need to fill in <code>cert</code>. If using self-signed or self-issued certificates, fill in the server certificate file at <code>cert</code>, otherwise validation may fail.</p>
 <p><code>sni</code> refers to the server name field in the TLS client request, generally the same as the certificate&rsquo;s Common Name. If you are using a certificate issued by Let&rsquo;s Encrypt etc., fill in your domain name here. For the client, if this field is not filled in, <code>remote_addr</code> will be used. You should specify a valid SNI (consistent with the remote certificate CN), otherwise the client may not be able to verify the remote certificate&rsquo;s validity and fail to connect. For the server, if this field is not filled in, the Common Name in the certificate is used as the SNI validation basis, supporting wildcards such as <code>*.example.com</code>.</p>
-<p><code>fingerprint</code> is used to specify the client TLS Client Hello fingerprint spoofing type, to resist GFW&rsquo;s fingerprint recognition and blocking of TLS Client Hello. trojan-go uses <a href="https://github.com/refraction-networking/utls">utls</a> for fingerprint spoofing, and by default spoofs the Firefox fingerprint. Valid values are:</p>
+<p><code>fingerprint</code> is used to specify the client TLS Client Hello fingerprint spoofing type, to resist GFW&rsquo;s fingerprint recognition and blocking of TLS Client Hello. trojan-go uses <a href="https://github.com/refraction-networking/utls">utls</a> for fingerprint spoofing, and <strong>by default spoofs the Chrome fingerprint</strong> (an empty or unset value resolves to <code>chrome</code>). Valid values are:</p>
 <ul>
 <li>
-<p><code>&quot;&quot;</code>, do not use fingerprint spoofing (default)</p>
+<p><code>&quot;&quot;</code>, use the default fingerprint (currently <code>chrome</code>)</p>
+</li>
+<li>
+<p><code>&quot;chrome&quot;</code>, spoof Chrome fingerprint (default)</p>
 </li>
 <li>
 <p><code>&quot;firefox&quot;</code>, spoof Firefox fingerprint</p>
 </li>
 <li>
-<p><code>&quot;chrome&quot;</code>, spoof Chrome fingerprint</p>
-</li>
-<li>
 <p><code>&quot;ios&quot;</code>, spoof iOS fingerprint</p>
 </li>
+<li>
+<p><code>&quot;edge&quot;</code>, spoof Microsoft Edge fingerprint</p>
+</li>
+<li>
+<p><code>&quot;safari&quot;</code>, spoof Safari fingerprint</p>
+</li>
+<li>
+<p><code>&quot;360browser&quot;</code>, spoof 360 Browser fingerprint</p>
+</li>
+<li>
+<p><code>&quot;qqbrowser&quot;</code>, spoof QQ Browser fingerprint</p>
+</li>
 </ul>
+<p>The default is enforced by the <code>TestDefaultFingerprintIsChrome</code> regression test in <code>tunnel/tls</code>; the value will not change silently across releases. See <a href="../../advance/tls">Advanced TLS settings</a> for ECH/ALPN interactions.</p>
 <p>Once the fingerprint value is set, the client&rsquo;s <code>cipher</code>, <code>curves</code>, <code>alpn</code>, <code>session_ticket</code> and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint.</p>
 <p><code>ech</code> whether to enable Encrypted Client Hello (ECH). When enabled, the client will hide the real SNI during the TLS handshake. Two modes are supported:</p>
 <ul>
-<li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is empty, GREASE ECH mode is used, adding a fake ECH extension to the Client Hello to simulate the behavior of browsers like Chrome and improve TLS fingerprint authenticity.</li>
-<li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is non-empty, full ECH mode is used, and the real SNI will be transmitted in encrypted form.</li>
+<li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is empty, <strong>GREASE ECH</strong> mode is used: trojan-go adds a fake ECH extension to the Client Hello to mimic the behaviour of browsers like Chrome. The real SNI is <strong>not</strong> encrypted in this mode — it still travels in plaintext in the outer Client Hello. The point is fingerprint authenticity, not confidentiality.</li>
+<li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is non-empty, <strong>full ECH</strong> mode is used, and the real SNI will be transmitted in encrypted form to the ECH-enabled origin. The outer SNI is taken from the ECHConfigList, so a correct, up-to-date <code>ech_config</code> is required.</li>
 </ul>
-<p><code>ech_config</code> The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If <code>ech</code> is <code>false</code>, this field is ignored.</p>
+<p><code>ech_config</code> The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If <code>ech</code> is <code>false</code>, this field is ignored (a <code>WARN</code> is logged at startup).</p>
 <p><code>alpn</code> specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. This is only used for fingerprint spoofing and has no practical effect. <strong>If using a CDN, an incorrect alpn field may cause the CDN to negotiate an incorrect application layer protocol.</strong></p>
 <p><code>prefer_server_cipher</code> whether the client prefers the cipher suite provided by the server during negotiation.</p>
 <p><code>cipher</code> The TLS cipher suite. The <code>cipher13</code> field is merged with this field. You should only fill this in if you clearly know what you are doing. <strong>In normal circumstances, you should leave this empty or not fill it in.</strong> trojan-go will automatically select the most appropriate encryption algorithm based on the current hardware platform and remote conditions to improve performance and security. If you need to fill it in, cipher suite names are separated by semicolons (&quot;:&quot;) in priority order. Go&rsquo;s TLS library has deprecated some insecure TLS 1.2 cipher suites and fully supports TLS 1.3. By default, trojan-go will prefer the more secure TLS 1.3.</p>
 <p><code>curves</code> specifies the elliptic curves that TLS prefers to use in ECDHE. Only fill this in if you clearly know what you are doing. Curve names are separated by semicolons (&quot;:&quot;) in priority order.</p>
 <p><code>plain_http_response</code> refers to the raw data (raw TCP data) that the server sends in plaintext when TLS handshake fails. Fill in the file path for this field. It is recommended to use <code>fallback_port</code> instead of this field.</p>
 <p><code>fallback_addr</code> and <code>fallback_port</code> specify the address to which trojan-go redirects the connection when the server TLS handshake fails. This is a trojan-go feature to better hide the server and resist GFW&rsquo;s active probing, making the server&rsquo;s port 443 behave exactly like a normal server when probed with non-TLS protocols. When the server accepts a connection but cannot perform TLS handshake, if <code>fallback_port</code> is non-empty, the traffic will be proxied to <code>fallback_addr:fallback_port</code>. If <code>fallback_addr</code> is empty, <code>remote_addr</code> is used. For example, you can run an HTTPS service locally with nginx, and when your server&rsquo;s port 443 receives a non-TLS protocol request (such as an HTTP request), trojan-go will proxy it to the local HTTPS server, and nginx will return a 400 Bad Request page in plaintext HTTP. You can verify this by using a browser to access <code>http://your-domain-name.com:443</code>.</p>
-<p><code>key_log</code> The file path for the TLS key log. If filled in, key logging is enabled. <strong>Recording keys breaks TLS security and this option should not be used for any purpose other than debugging.</strong></p>
+<p><code>fallback</code> is a list of structured fallback rules. When non-empty it takes precedence over the legacy <code>fallback_addr</code>/<code>fallback_port</code> pair, which is auto-translated to a single default rule when <code>fallback</code> is empty. Each rule is matched against the TLS <code>ServerName</code> (SNI) and <code>NegotiatedProtocol</code> (ALPN) of the rejected probe; the first rule whose <code>sni</code> (case-insensitive substring match) and <code>alpn</code> (any-of, empty list = match all) both match is used. A rule with <code>default: true</code> is the catch-all and is consulted when no SNI/ALPN-specific rule matches. Routing also applies to probes that complete the TLS handshake but then fail trojan auth, so an active probe sending wrong-protocol bytes after a valid SNI ends up on the same backend as a wrong-SNI probe. Each rule has the following fields:</p>
+<ul>
+<li>
+<p><code>sni</code> — case-insensitive substring matched against the probe&rsquo;s TLS SNI. Empty matches any SNI.</p>
+</li>
+<li>
+<p><code>alpn</code> — list of acceptable ALPN strings (e.g. <code>[&quot;h2&quot;, &quot;http/1.1&quot;]</code>). Empty matches any ALPN.</p>
+</li>
+<li>
+<p><code>addr</code>, <code>port</code> — required. Destination of the fallback dial.</p>
+</li>
+<li>
+<p><code>proxy_protocol</code> — <code>0</code> (no header, default), <code>1</code> (PROXY protocol v1, text), or <code>2</code> (PROXY protocol v2, binary). When non-zero a header carrying the original client&rsquo;s TCP address is prepended to the outbound stream so PROXY-aware backends (nginx, haproxy) see the real peer instead of the trojan-go process address. Header emission failure is logged at <code>Warn</code> but does not abort the relay.</p>
+</li>
+<li>
+<p><code>default</code> — boolean. The single catch-all rule used when no SNI/ALPN-specific rule matches.</p>
+</li>
+</ul>
+<p>Invalid entries (missing <code>addr</code>, <code>port</code> outside <code>1..65535</code>, <code>proxy_protocol</code> outside <code>0..2</code>) are silently dropped at parse time.</p>
+<p>Example:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="color:#e6db74">&#34;fallback&#34;</span><span style="color:#960050;background-color:#1e0010">:</span> [
+  {<span style="color:#f92672">&#34;sni&#34;</span>: <span style="color:#e6db74">&#34;site.example&#34;</span>, <span style="color:#f92672">&#34;alpn&#34;</span>: [<span style="color:#e6db74">&#34;h2&#34;</span>], <span style="color:#f92672">&#34;addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>, <span style="color:#f92672">&#34;port&#34;</span>: <span style="color:#ae81ff">8443</span>, <span style="color:#f92672">&#34;proxy_protocol&#34;</span>: <span style="color:#ae81ff">2</span>},
+  {<span style="color:#f92672">&#34;default&#34;</span>: <span style="color:#66d9ef">true</span>, <span style="color:#f92672">&#34;addr&#34;</span>: <span style="color:#e6db74">&#34;127.0.0.1&#34;</span>, <span style="color:#f92672">&#34;port&#34;</span>: <span style="color:#ae81ff">80</span>}
+]
+</code></pre></div><p><code>key_log</code> The file path for the TLS key log. If filled in, key logging is enabled. <strong>Recording keys breaks TLS security and this option should not be used for any purpose other than debugging.</strong></p>
 <h3 id="mux-multiplexing-options"><code>mux</code> Multiplexing Options</h3>
 <p>Multiplexing is a trojan-go feature. If both server and client use trojan-go, you can enable mux multiplexing to reduce latency in high-concurrency scenarios (only the client needs to enable this option; the server adapts automatically).</p>
 <p>Note that the significance of multiplexing is to reduce handshake latency, not to improve link speed. On the contrary, it increases CPU and memory consumption on both client and server, which may cause speed reduction.</p>
@@ -379,6 +431,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p>trojan-go is compatible with Trojan&rsquo;s MySQL-based user management, but the more recommended approach is to use the API.</p>
 <p><code>enabled</code> indicates whether to use a MySQL database for user authentication.</p>
 <p><code>check_rate</code> is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.</p>
+<p><code>query_timeout</code> is the per-call deadline (in seconds) applied to every MySQL <code>Query</code>/<code>Exec</code>. <code>0</code> or a negative value selects the default of <code>5</code> seconds. Each updater iteration starts with a <code>PingContext</code> health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited <code>Warn</code> is emitted. Cumulative driver/query failures are exposed as the <code>mysql_errors_total</code> counter for the metrics surface.</p>
 <p>Other options are self-explanatory and will not be elaborated on further.</p>
 <p>The users table structure is consistent with the Trojan version definition. Below is an example of creating the users table. Note that the password here refers to the SHA224 hash of the password (a string), and the units of traffic download, upload, quota are bytes. You can add and delete users, or specify users' traffic quotas by modifying the user record in the database&rsquo;s users table. trojan-go will automatically update the currently valid user list based on all users' traffic quotas. If download+upload&gt;quota, the trojan-go server will reject that user&rsquo;s connection.</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-mysql" data-lang="mysql"><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> <span style="color:#a6e22e">users</span> (
@@ -426,7 +479,56 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>client_cert</code> if client authentication is enabled, fill in the list of authenticated client certificates here.</p>
 </li>
 </ul>
-<p>Warning: <strong>Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.</strong></p>
+<p><code>allow_payload_capture</code> controls whether the <code>GetRecords</code> RPC is allowed to stream raw connection payloads (in addition to per-connection metadata). It defaults to <code>false</code>. The flag is <strong>only</strong> honoured when the binary is built with the <code>apidebug</code> build tag; default release builds silently downgrade <code>IncludePayload=true</code> requests to metadata-only streaming so production scripts cannot leak bytes regardless of the config value. With the <code>apidebug</code> tag and the flag set to <code>false</code> the RPC returns <code>PermissionDenied</code>, making misconfiguration loud rather than silent. Leave this at <code>false</code> outside of focused debugging.</p>
+<p>Warning: <strong>Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.</strong> When <code>api_addr</code> is bound to a non-loopback address, trojan-go logs a <code>WARN</code> at startup if TLS is not enabled, and a separate <code>WARN</code> if TLS is enabled but <code>verify_client</code> is off. The server is not refused so existing private-network deployments keep working, but plaintext gRPC and any management commands travelling over an exposed interface should be considered world-readable.</p>
+<h3 id="timeout-options"><code>timeout</code> Options</h3>
+<p>The <code>timeout</code> block centralises every deadline that protects the server from slow or stuck peers. All values are in seconds: <code>0</code> selects the documented default, <code>-1</code> disables the corresponding deadline.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Applied at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tls_handshake</code></td>
+<td><code>10</code></td>
+<td>TLS server <code>SetDeadline</code> covering both <code>Handshake()</code> and the immediate post-handshake HTTP sniff. A client that completes TLS and then sends nothing is closed within this budget rather than hanging in <code>http.ReadRequest</code>.</td>
+</tr>
+<tr>
+<td><code>trojan_auth</code></td>
+<td><code>4</code></td>
+<td>Read deadline before the 56-byte hash + metadata block. The deadline is cleared on successful auth so long-lived tunnels do not inherit it, and is also cleared before the rewind/fallback path so a fallback backend never inherits a nearly-expired deadline.</td>
+</tr>
+<tr>
+<td><code>tcp_relay_idle</code></td>
+<td><code>300</code></td>
+<td>Half-duplex idle on each direction of the TCP relay loop. The read deadline is refreshed on every successful read; an active tunnel under sustained throughput is not killed prematurely.</td>
+</tr>
+<tr>
+<td><code>udp_session_idle</code></td>
+<td><code>60</code></td>
+<td>Read deadline applied before each UDP packet read.</td>
+</tr>
+<tr>
+<td><code>fallback_dial</code></td>
+<td><code>5</code></td>
+<td><code>net.DialTimeout</code> for the redirector&rsquo;s outbound dial when sending a probe to the fallback backend.</td>
+</tr>
+<tr>
+<td><code>fallback_idle</code></td>
+<td><code>30</code></td>
+<td>Half-duplex idle on the redirector&rsquo;s relay copies, refreshed on every successful read.</td>
+</tr>
+</tbody>
+</table>
+<p>Leave the block empty to accept all defaults; setting any field independently overrides only that timeout.</p>
+<h3 id="queue-options"><code>queue</code> Options</h3>
+<p>The <code>queue</code> block sizes the per-listener accept queues and the per-user concurrent connection cap.</p>
+<p><code>accept_queue_size</code> is the buffer size of every transport, TLS, trojan and mux accept channel. The default is <code>256</code>. When the buffer is full, new accepts are dropped with a single <code>Warn(&quot;accept queue full ...&quot;)</code> and the inbound socket is closed; the accept goroutine itself is never parked, so a stuck consumer can no longer back up the listener. <code>0</code> selects the default; <code>-1</code> collapses to a length-1 buffered channel (rarely useful, accepted for symmetry with <code>timeout</code>).</p>
+<p><code>max_conn_per_user</code> is the maximum number of simultaneously open connections allowed per authenticated user, enforced atomically in the same critical section as the per-IP cap. The default is <code>0</code> (unlimited); any positive value caps each user, and surplus connections are rejected at auth time. Negative values are normalised to <code>0</code>.</p>
 <div class="edit-meta">
 
 <br><a href="https://github.com/kis1yi/trojan-go/docs/edit/master/content/basic/full-config.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="https://kis1yi.github.io/trojan-go/basic/config/" title="Correctly Configuring Trojan-Go"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Correctly Configuring Trojan-Go</a>
@@ -461,6 +563,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/customize-protocol-stack/">Customizing the Protocol Stack</a></li>
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/aead/">Secondary Encryption with Shadowsocks AEAD</a></li>
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/api/">Dynamic User Management via API</a></li>
+<li class=""><a href="https://kis1yi.github.io/trojan-go/advance/tls/">Advanced TLS Settings: Fingerprints, ALPN, and ECH</a></li>
 <li class=""><a href="https://kis1yi.github.io/trojan-go/advance/nat/">Transparent Proxy</a></li>
 </ul>
   
