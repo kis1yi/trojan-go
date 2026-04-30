@@ -7,8 +7,11 @@ import (
 	"reflect"
 	"time"
 
+	proxyproto "github.com/pires/go-proxyproto"
+
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/common/timeout"
+	"github.com/kis1yi/trojan-go/fallback"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/metrics"
 )
@@ -82,6 +85,18 @@ func (r *Redirector) worker() {
 					return
 				}
 				defer outboundConn.Close()
+				// P1-1d: emit a PROXY protocol v1/v2 header on the dial
+				// when the matched fallback rule asks for it. The header
+				// carries the original client's source address so the
+				// backend (typically nginx or haproxy) sees the real
+				// peer instead of the trojan-go process address. Header
+				// emission failure is logged but not fatal — the relay
+				// continues and the backend will still serve plain TCP.
+				if rule := fallback.Unwrap(redirection.InboundConn); rule != nil && rule.ProxyProtocol != fallback.ProxyProtocolNone {
+					if err := writeProxyHeader(outboundConn, redirection.InboundConn, rule.ProxyProtocol); err != nil {
+						log.Warn(common.NewError("failed to write PROXY protocol header").Base(err))
+					}
+				}
 				errChan := make(chan error, 2)
 				copyConn := func(a, b net.Conn) {
 					if r.idleTimeout > 0 {
@@ -125,4 +140,35 @@ func NewRedirector(ctx context.Context) *Redirector {
 	}
 	go r.worker()
 	return r
+}
+
+// writeProxyHeader composes and emits a PROXY protocol header on `out`
+// describing the original client address recorded on `in`. P1-1d: reuses
+// the same `pires/go-proxyproto` library that already powers PROXY
+// protocol *ingress* in tunnel/transport/server.go — there is exactly one
+// PROXY implementation in the binary.
+//
+// AddrPort plumbing: we accept any net.Addr that can be parsed as a TCP
+// address. Non-TCP source/destination (e.g. unix sockets used in tests)
+// fall back to UNSPEC which is a valid PROXY v2 transport that backends
+// will accept without the connection details.
+func writeProxyHeader(out net.Conn, in net.Conn, version fallback.ProxyProtocolVersion) error {
+	src, srcOK := in.RemoteAddr().(*net.TCPAddr)
+	dst, dstOK := in.LocalAddr().(*net.TCPAddr)
+	header := &proxyproto.Header{
+		Version:           byte(version),
+		Command:           proxyproto.PROXY,
+		TransportProtocol: proxyproto.UNSPEC,
+	}
+	if srcOK && dstOK {
+		header.SourceAddr = src
+		header.DestinationAddr = dst
+		if src.IP.To4() != nil && dst.IP.To4() != nil {
+			header.TransportProtocol = proxyproto.TCPv4
+		} else {
+			header.TransportProtocol = proxyproto.TCPv6
+		}
+	}
+	_, err := header.WriteTo(out)
+	return err
 }
