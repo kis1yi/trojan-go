@@ -28,6 +28,7 @@ func newMySQLTestAuth(t *testing.T, db *sql.DB) (*Authenticator, context.CancelF
 		db:             db,
 		ctx:            ctx,
 		updateDuration: time.Second,
+		queryTimeout:   DefaultQueryTimeout,
 		Authenticator:  memAuth.(*memory.Authenticator),
 	}
 	return a, cancel
@@ -233,5 +234,63 @@ func TestMySQLUpdaterPropagatesQuotaToMemory(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
+}
+
+// TestMySQLUpdaterSurvivesPingFailure is the P1-3 reliability regression.
+// When the DB is unreachable, the updater MUST:
+//   1. NOT delete existing in-memory users (cache continues to authenticate);
+//   2. NOT issue any subsequent SELECT/UPDATE for that tick;
+//   3. Increment ErrorsTotal so the operator can observe the outage via the
+//      upcoming P1-5 metrics surface.
+func TestMySQLUpdaterSurvivesPingFailure(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+
+	// Pre-populate the in-memory cache so we can prove it survives the
+	// outage. AddUser does not touch the DB.
+	if err := a.AddUser("cached_user"); err != nil {
+		t.Fatalf("AddUser: %v", err)
+	}
+
+	// Two failing pings cover the "spend a tick offline, then a second
+	// tick still offline" case. After the second tick the user must still
+	// be present.
+	mock.ExpectPing().WillReturnError(sql.ErrConnDone)
+	mock.ExpectPing().WillReturnError(sql.ErrConnDone)
+
+	// Speed the loop up so the test does not depend on the default tick.
+	a.updateDuration = 50 * time.Millisecond
+
+	go a.updater()
+	time.Sleep(250 * time.Millisecond)
+
+	if valid, _ := a.AuthUser("cached_user"); !valid {
+		t.Fatal("cached user removed during MySQL outage; cache must survive")
+	}
+	if got := a.ErrorsTotal(); got == 0 {
+		t.Fatal("ErrorsTotal should be incremented on ping failure, got 0")
+	}
+	// We do NOT assert mock.ExpectationsWereMet here: the test is timing
+	// based and we may race past the second ExpectPing on slow CI. The
+	// invariants we care about (cache survives, error counter advances)
+	// are explicit above.
+}
+
+func TestResolveQueryTimeoutDefault(t *testing.T) {
+	if got := resolveQueryTimeout(0); got != DefaultQueryTimeout {
+		t.Fatalf("resolveQueryTimeout(0) = %v, want %v", got, DefaultQueryTimeout)
+	}
+	if got := resolveQueryTimeout(-1); got != DefaultQueryTimeout {
+		t.Fatalf("resolveQueryTimeout(-1) = %v, want %v (negative also defaults)", got, DefaultQueryTimeout)
+	}
+	if got := resolveQueryTimeout(7); got != 7*time.Second {
+		t.Fatalf("resolveQueryTimeout(7) = %v, want 7s", got)
 	}
 }
