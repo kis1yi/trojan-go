@@ -214,6 +214,7 @@ func (u *User) AddRecvTraffic(recv int) {
 //     are wrapped with `idleReader` / `SetReadDeadline` (P0-1),
 //   - the `speedUpdater` and `trafficUpdater` goroutines started by
 //     `Authenticator.AddUser`.
+//
 // `Close()` is idempotent w.r.t. cancel, so racing callers are safe.
 func (u *User) checkQuota(total uint64) {
 	q := atomic.LoadInt64(&u.quota)

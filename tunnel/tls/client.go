@@ -96,36 +96,50 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 	}, nil
 }
 
+// resolveFingerprint maps the user-configured `fingerprint` string to the
+// corresponding utls ClientHelloID. The empty string is treated as the default
+// and resolves to Chrome — see the `TestDefaultFingerprintIsChrome` regression
+// test guarding against silent default changes. Names are case-insensitive.
+//
+// The list of accepted values is mirrored in
+// docs/content/advance/tls.md and docs/content/basic/full-config.md; update
+// both when this list changes.
+func resolveFingerprint(name string) (tls.ClientHelloID, error) {
+	if name == "" {
+		return tls.HelloChrome_Auto, nil
+	}
+	switch strings.ToLower(name) {
+	case "chrome":
+		return tls.HelloChrome_Auto, nil
+	case "ios":
+		return tls.HelloIOS_Auto, nil
+	case "firefox":
+		return tls.HelloFirefox_Auto, nil
+	case "edge":
+		return tls.HelloEdge_Auto, nil
+	case "safari":
+		return tls.HelloSafari_Auto, nil
+	case "360browser":
+		return tls.Hello360_Auto, nil
+	case "qqbrowser":
+		return tls.HelloQQ_Auto, nil
+	default:
+		return tls.ClientHelloID{}, common.NewError("Invalid 'fingerprint' value in configuration: '" + name + "'. Possible values are 'chrome' (default), 'ios', 'firefox', 'edge', 'safari', '360browser', or 'qqbrowser'.")
+	}
+}
+
 // NewClient creates a tls client
 func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
 
-	helloID := tls.ClientHelloID{}
-	// keep the parameter name consistent with upstream
-	// https://github.com/refraction-networking/utls/blob/35e5b05fc4b6f8c4351d755f2570bc293f30aaf6/u_common.go#L114-L132
-	if cfg.TLS.Fingerprint != "" {
-		switch strings.ToLower(cfg.TLS.Fingerprint) {
-		case "chrome":
-			helloID = tls.HelloChrome_Auto
-		case "ios":
-			helloID = tls.HelloIOS_Auto
-		case "firefox":
-			helloID = tls.HelloFirefox_Auto
-		case "edge":
-			helloID = tls.HelloEdge_Auto
-		case "safari":
-			helloID = tls.HelloSafari_Auto
-		case "360browser":
-			helloID = tls.Hello360_Auto
-		case "qqbrowser":
-			helloID = tls.HelloQQ_Auto
-		default:
-			return nil, common.NewError("Invalid 'fingerprint' value in configuration: '" + cfg.TLS.Fingerprint + "'. Possible values are 'chrome' (default), 'ios', 'firefox', 'edge', 'safari', '360browser', or 'qqbrowser'.")
-		}
-		log.Info("Your trojan's TLS fingerprint will look like", cfg.TLS.Fingerprint)
-	} else {
-		helloID = tls.HelloChrome_Auto
+	helloID, err := resolveFingerprint(cfg.TLS.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.TLS.Fingerprint == "" {
 		log.Info("No 'fingerprint' value specified in your configuration. Your trojan's TLS fingerprint will look like Chrome by default.")
+	} else {
+		log.Info("Your trojan's TLS fingerprint will look like", cfg.TLS.Fingerprint)
 	}
 
 	if cfg.TLS.SNI == "" {

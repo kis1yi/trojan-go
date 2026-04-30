@@ -171,24 +171,34 @@ The server must fill in `cert` and `key`, corresponding to the server's certific
 
 `sni` refers to the server name field in the TLS client request, generally the same as the certificate's Common Name. If you are using a certificate issued by Let's Encrypt etc., fill in your domain name here. For the client, if this field is not filled in, `remote_addr` will be used. You should specify a valid SNI (consistent with the remote certificate CN), otherwise the client may not be able to verify the remote certificate's validity and fail to connect. For the server, if this field is not filled in, the Common Name in the certificate is used as the SNI validation basis, supporting wildcards such as `*.example.com`.
 
-`fingerprint` is used to specify the client TLS Client Hello fingerprint spoofing type, to resist GFW's fingerprint recognition and blocking of TLS Client Hello. trojan-go uses [utls](https://github.com/refraction-networking/utls) for fingerprint spoofing, and by default spoofs the Firefox fingerprint. Valid values are:
+`fingerprint` is used to specify the client TLS Client Hello fingerprint spoofing type, to resist GFW's fingerprint recognition and blocking of TLS Client Hello. trojan-go uses [utls](https://github.com/refraction-networking/utls) for fingerprint spoofing, and **by default spoofs the Chrome fingerprint** (an empty or unset value resolves to `chrome`). Valid values are:
 
-- `""`, do not use fingerprint spoofing (default)
+- `""`, use the default fingerprint (currently `chrome`)
+
+- `"chrome"`, spoof Chrome fingerprint (default)
 
 - `"firefox"`, spoof Firefox fingerprint
 
-- `"chrome"`, spoof Chrome fingerprint
-
 - `"ios"`, spoof iOS fingerprint
+
+- `"edge"`, spoof Microsoft Edge fingerprint
+
+- `"safari"`, spoof Safari fingerprint
+
+- `"360browser"`, spoof 360 Browser fingerprint
+
+- `"qqbrowser"`, spoof QQ Browser fingerprint
+
+The default is enforced by the `TestDefaultFingerprintIsChrome` regression test in `tunnel/tls`; the value will not change silently across releases. See [Advanced TLS settings](../../advance/tls) for ECH/ALPN interactions.
 
 Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `session_ticket` and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint.
 
 `ech` whether to enable Encrypted Client Hello (ECH). When enabled, the client will hide the real SNI during the TLS handshake. Two modes are supported:
 
-- When `ech` is set to `true` and `ech_config` is empty, GREASE ECH mode is used, adding a fake ECH extension to the Client Hello to simulate the behavior of browsers like Chrome and improve TLS fingerprint authenticity.
-- When `ech` is set to `true` and `ech_config` is non-empty, full ECH mode is used, and the real SNI will be transmitted in encrypted form.
+- When `ech` is set to `true` and `ech_config` is empty, **GREASE ECH** mode is used: trojan-go adds a fake ECH extension to the Client Hello to mimic the behaviour of browsers like Chrome. The real SNI is **not** encrypted in this mode — it still travels in plaintext in the outer Client Hello. The point is fingerprint authenticity, not confidentiality.
+- When `ech` is set to `true` and `ech_config` is non-empty, **full ECH** mode is used, and the real SNI will be transmitted in encrypted form to the ECH-enabled origin. The outer SNI is taken from the ECHConfigList, so a correct, up-to-date `ech_config` is required.
 
-`ech_config` The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If `ech` is `false`, this field is ignored.
+`ech_config` The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If `ech` is `false`, this field is ignored (a `WARN` is logged at startup).
 
 `alpn` specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. This is only used for fingerprint spoofing and has no practical effect. **If using a CDN, an incorrect alpn field may cause the CDN to negotiate an incorrect application layer protocol.**
 

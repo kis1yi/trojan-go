@@ -8,7 +8,7 @@ BUILD_DIR := build
 VAR_SETTING := -X $(PACKAGE_NAME)/constant.Version=$(VERSION) -X $(PACKAGE_NAME)/constant.Commit=$(COMMIT)
 GOBUILD = env CGO_ENABLED=0 $(GO_DIR)go build -tags "full" -trimpath -ldflags="-s -w -buildid= $(VAR_SETTING)" -o $(BUILD_DIR)
 
-.PHONY: trojan-go release test
+.PHONY: trojan-go release test test-race
 normal: clean trojan-go
 
 clean:
@@ -28,6 +28,12 @@ geosite.dat:
 test:
 	# Disable Bloomfilter when testing
 	SHADOWSOCKS_SF_CAPACITY="-1" $(GO_DIR)go test -v ./...
+
+# test-race runs the race detector on the packages with concurrent state that
+# the 2026 hardening cycle (H4/H5/P0-2/P0-3) touched. Keep this list narrow:
+# enabling -race on the full module is noisy and slow on Windows runners.
+test-race:
+	SHADOWSOCKS_SF_CAPACITY="-1" $(GO_DIR)go test -race -tags "full" ./statistic/... ./api/... ./tunnel/trojan/... ./tunnel/mux/...
 
 trojan-go:
 	mkdir -p $(BUILD_DIR)
