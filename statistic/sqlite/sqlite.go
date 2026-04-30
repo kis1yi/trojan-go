@@ -6,10 +6,11 @@ import (
 	"errors"
 
 	"github.com/glebarez/sqlite"
-	"github.com/kis1yi/trojan-go/common"
-	"github.com/kis1yi/trojan-go/statistic"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/statistic"
 )
 
 const Name = "sqlite"

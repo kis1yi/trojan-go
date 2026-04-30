@@ -24,7 +24,11 @@ linters:
             - github.com/kis1yi/trojan-go
             - github.com/DATA-DOG/go-sqlmock
             - github.com/pires/go-proxyproto
+            - github.com/refraction-networking/utls
             - github.com/xtaci/smux
+            - golang.org/x/time/rate
+            - google.golang.org/grpc
+            - google.golang.org/protobuf
 
 formatters:
   enable:
