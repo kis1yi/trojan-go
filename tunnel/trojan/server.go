@@ -11,6 +11,7 @@ import (
 
 	"github.com/kis1yi/trojan-go/api"
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
@@ -256,21 +257,20 @@ func (s *Server) acceptLoop() {
 			switch inboundConn.metadata.Command {
 			case Connect:
 				if inboundConn.metadata.DomainName == "MUX_CONN" {
-					s.muxChan <- inboundConn
+					s.offer(s.muxChan, inboundConn, "trojan.muxChan")
 					log.Debug("mux(r) connection")
 				} else {
-					s.connChan <- inboundConn
-					log.Debug("normal trojan connection")
-					inboundConn.Record()
+					if s.deliver(s.connChan, inboundConn, "trojan.connChan") {
+						log.Debug("normal trojan connection")
+						inboundConn.Record()
+					}
 				}
 
 			case Associate:
-				s.packetChan <- &PacketConn{
-					Conn: inboundConn,
-				}
+				s.offerPacket(s.packetChan, &PacketConn{Conn: inboundConn}, "trojan.packetChan")
 				log.Debug("trojan udp connection")
 			case Mux:
-				s.muxChan <- inboundConn
+				s.offer(s.muxChan, inboundConn, "trojan.muxChan")
 				log.Debug("mux connection")
 			default:
 				log.Error(common.NewError(fmt.Sprintf("unknown trojan command %d", inboundConn.metadata.Command)))
@@ -307,6 +307,44 @@ func (s *Server) AcceptPacket(tunnel.Tunnel) (tunnel.PacketConn, error) {
 	}
 }
 
+// offer pushes c onto ch without ever blocking the accept goroutine.
+// P1-2: drop on full queue and log at Warn rather than parking. The
+// connection is closed on drop so the per-IP/per-user counters that
+// `Auth()` already incremented are released by the deferred Close path.
+func (s *Server) offer(ch chan<- tunnel.Conn, c tunnel.Conn, label string) {
+	if !s.deliver(ch, c, label) {
+		_ = c.Close()
+	}
+}
+
+// deliver is the same non-blocking send as offer but reports whether the
+// hand-off succeeded so the caller can skip side-effects (Record, log) on
+// drop.
+func (s *Server) deliver(ch chan<- tunnel.Conn, c tunnel.Conn, label string) bool {
+	select {
+	case ch <- c:
+		return true
+	case <-s.ctx.Done():
+		_ = c.Close()
+		return false
+	default:
+		log.Warn("accept queue full, dropping trojan connection from", c.RemoteAddr(), "queue="+label)
+		_ = c.Close()
+		return false
+	}
+}
+
+func (s *Server) offerPacket(ch chan<- tunnel.PacketConn, c tunnel.PacketConn, label string) {
+	select {
+	case ch <- c:
+	case <-s.ctx.Done():
+		_ = c.Close()
+	default:
+		log.Warn("accept queue full, dropping trojan packet conn", "queue="+label)
+		_ = c.Close()
+	}
+}
+
 func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
 	ctx, cancel := context.WithCancel(ctx)
@@ -333,13 +371,14 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	recorder.Capacity = cfg.RecordCapacity
 
 	redirAddr := tunnel.NewAddressFromHostPort("tcp", cfg.RemoteHost, cfg.RemotePort)
+	qsize := queue.FromContext(ctx).ResolveAcceptQueueSize()
 	s := &Server{
 		underlay:    underlay,
 		auth:        Auth,
 		redirAddr:   redirAddr,
-		connChan:    make(chan tunnel.Conn, 32),
-		muxChan:     make(chan tunnel.Conn, 32),
-		packetChan:  make(chan tunnel.PacketConn, 32),
+		connChan:    make(chan tunnel.Conn, qsize),
+		muxChan:     make(chan tunnel.Conn, qsize),
+		packetChan:  make(chan tunnel.PacketConn, qsize),
 		ctx:         ctx,
 		cancel:      cancel,
 		redir:       redirector.NewRedirector(ctx),

@@ -14,6 +14,7 @@ import (
 	proxyproto "github.com/pires/go-proxyproto"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/tunnel"
@@ -68,21 +69,15 @@ func (s *Server) acceptLoop() {
 				rewindConn.StopBuffering()
 				if err != nil {
 					// this is not a http request, pass it to trojan protocol layer for further inspection
-					s.connChan <- &Conn{
-						Conn: rewindConn,
-					}
+					s.offer(s.connChan, &Conn{Conn: rewindConn}, "transport.connChan")
 				} else {
 					// this is a http request, pass it to websocket protocol layer
 					log.Debug("plaintext http request: ", httpReq)
-					s.wsChan <- &Conn{
-						Conn: rewindConn,
-					}
+					s.offer(s.wsChan, &Conn{Conn: rewindConn}, "transport.wsChan")
 				}
 			} else {
 				s.httpLock.RUnlock()
-				s.connChan <- &Conn{
-					Conn: tcpConn,
-				}
+				s.offer(s.connChan, &Conn{Conn: tcpConn}, "transport.connChan")
 			}
 		}(tcpConn)
 	}
@@ -168,14 +163,30 @@ func NewServer(ctx context.Context, _ tunnel.Server) (*Server, error) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	qsize := queue.FromContext(ctx).ResolveAcceptQueueSize()
 	server := &Server{
 		tcpListener: tcpListener,
 		cmd:         cmd,
 		ctx:         ctx,
 		cancel:      cancel,
-		connChan:    make(chan tunnel.Conn, 32),
-		wsChan:      make(chan tunnel.Conn, 32),
+		connChan:    make(chan tunnel.Conn, qsize),
+		wsChan:      make(chan tunnel.Conn, qsize),
 	}
 	go server.acceptLoop()
 	return server, nil
+}
+
+// offer pushes c onto ch without ever blocking the accept goroutine.
+// P1-2: if the consumer is not draining, drop the connection and log once at
+// Warn rather than parking the accept loop. The fast path is the buffered
+// `case ch <- c`; the `default` only fires when the queue is full.
+func (s *Server) offer(ch chan<- tunnel.Conn, c tunnel.Conn, label string) {
+	select {
+	case ch <- c:
+	case <-s.ctx.Done():
+		_ = c.Close()
+	default:
+		log.Warn("accept queue full, dropping connection from", c.RemoteAddr(), "queue="+label)
+		_ = c.Close()
+	}
 }

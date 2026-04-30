@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
@@ -175,9 +176,7 @@ func (s *Server) acceptLoop() {
 			_ = rewindConn.SetReadDeadline(time.Time{})
 			if err != nil {
 				// this is not a http request. pass it to trojan protocol layer for further inspection
-				s.connChan <- &transport.Conn{
-					Conn: rewindConn,
-				}
+				s.offer(s.connChan, &transport.Conn{Conn: rewindConn}, "tls.connChan")
 			} else {
 				if atomic.LoadInt32(&s.nextHTTP) != 1 {
 					// there is no websocket layer waiting for connections, redirect it
@@ -190,11 +189,23 @@ func (s *Server) acceptLoop() {
 				}
 				// this is a http request, pass it to websocket protocol layer
 				log.Debug("http req: ", httpReq)
-				s.wsChan <- &transport.Conn{
-					Conn: rewindConn,
-				}
+				s.offer(s.wsChan, &transport.Conn{Conn: rewindConn}, "tls.wsChan")
 			}
 		}(conn)
+	}
+}
+
+// offer pushes c onto ch without ever blocking the accept goroutine.
+// P1-2: if the consumer is not draining, drop the connection and log once at
+// Warn rather than parking the accept loop.
+func (s *Server) offer(ch chan<- tunnel.Conn, c tunnel.Conn, label string) {
+	select {
+	case ch <- c:
+	case <-s.ctx.Done():
+		_ = c.Close()
+	default:
+		log.Warn("accept queue full, dropping connection from", c.RemoteAddr(), "queue="+label)
+		_ = c.Close()
 	}
 }
 
@@ -367,6 +378,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	qsize := queue.FromContext(ctx).ResolveAcceptQueueSize()
 	server := &Server{
 		underlay:           underlay,
 		fallbackAddress:    fallbackAddress,
@@ -376,8 +388,8 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 		alpn:               cfg.TLS.ALPN,
 		PreferServerCipher: cfg.TLS.PreferServerCipher,
 		sessionTicket:      cfg.TLS.ReuseSession,
-		connChan:           make(chan tunnel.Conn, 32),
-		wsChan:             make(chan tunnel.Conn, 32),
+		connChan:           make(chan tunnel.Conn, qsize),
+		wsChan:             make(chan tunnel.Conn, qsize),
 		redir:              redirector.NewRedirector(ctx),
 		keyPair:            []tls.Certificate{*keyPair},
 		keyLogger:          keyLogger,

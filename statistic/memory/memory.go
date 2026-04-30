@@ -10,6 +10,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/statistic"
@@ -36,6 +37,12 @@ type User struct {
 	ipTable     map[string]int
 	ipNum       int
 	MaxIPNum    int
+	// P1-2: per-user concurrent connection cap. MaxConnNum == 0 means
+	// unlimited. connNum is updated under ipLock by AddIP/DelIP — both
+	// counters share the same critical section so AddIP atomically rejects
+	// when either limit is reached.
+	connNum     int
+	MaxConnNum  int
 	limiterLock sync.RWMutex
 	SendLimiter *rate.Limiter
 	RecvLimiter *rate.Limiter
@@ -65,11 +72,19 @@ func (u *User) Close() error {
 func (u *User) AddIP(ip string) bool {
 	u.ipLock.Lock()
 	defer u.ipLock.Unlock()
+	// P1-2: per-user connection cap is enforced here, in the same critical
+	// section as the IP cap, so that the two limits cannot race against each
+	// other when many connections arrive concurrently.
+	if u.MaxConnNum > 0 && u.connNum+1 > u.MaxConnNum {
+		return false
+	}
 	if u.MaxIPNum <= 0 {
+		u.connNum++
 		return true
 	}
 	if count, found := u.ipTable[ip]; found {
 		u.ipTable[ip] = count + 1
+		u.connNum++
 		return true
 	}
 	if u.ipNum+1 > u.MaxIPNum {
@@ -77,6 +92,7 @@ func (u *User) AddIP(ip string) bool {
 	}
 	u.ipTable[ip] = 1
 	u.ipNum++
+	u.connNum++
 	return true
 }
 
@@ -84,6 +100,9 @@ func (u *User) DelIP(ip string) bool {
 	u.ipLock.Lock()
 	defer u.ipLock.Unlock()
 	if u.MaxIPNum <= 0 {
+		if u.connNum > 0 {
+			u.connNum--
+		}
 		return true
 	}
 	count, found := u.ipTable[ip]
@@ -95,6 +114,9 @@ func (u *User) DelIP(ip string) bool {
 		u.ipNum--
 	} else {
 		u.ipTable[ip] = count - 1
+	}
+	if u.connNum > 0 {
+		u.connNum--
 	}
 	return true
 }
@@ -325,10 +347,11 @@ func (u *User) GetSpeed() (uint64, uint64) {
 }
 
 type Authenticator struct {
-	users  sync.Map
-	pst    statistic.Persistencer
-	ctx    context.Context
-	cancel context.CancelFunc
+	users          sync.Map
+	pst            statistic.Persistencer
+	ctx            context.Context
+	cancel         context.CancelFunc
+	maxConnPerUser int // P1-2 default applied to new users
 }
 
 func (a *Authenticator) AuthUser(hash string) (bool, statistic.User) {
@@ -344,11 +367,12 @@ func (a *Authenticator) AddUser(hash string) error {
 	}
 	ctx, cancel := context.WithCancel(a.ctx)
 	meter := &User{
-		Hash:    hash,
-		ipTable: make(map[string]int),
-		ctx:     ctx,
-		cancel:  cancel,
-		cutoff:  make(chan struct{}),
+		Hash:       hash,
+		ipTable:    make(map[string]int),
+		ctx:        ctx,
+		cancel:     cancel,
+		cutoff:     make(chan struct{}),
+		MaxConnNum: a.maxConnPerUser,
 		// P0-3a: default quota to -1 (unlimited). Without this, statically
 		// configured users (loaded via cfg.Passwords) would be created with
 		// quota == 0, which the SQLite quota enforcement loop interprets as
@@ -472,7 +496,9 @@ func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
 
 func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
-	a := &Authenticator{}
+	a := &Authenticator{
+		maxConnPerUser: queue.FromContext(ctx).ResolveMaxConnPerUser(),
+	}
 	a.ctx, a.cancel = context.WithCancel(ctx)
 	var err error
 	if cfg.Sqlite != "" {
@@ -489,10 +515,12 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 			}
 			ctx, cancel := context.WithCancel(a.ctx)
 			user := &User{
-				Hash:    hash,
-				ipTable: make(map[string]int),
-				ctx:     ctx,
-				cancel:  cancel,
+				Hash:       hash,
+				ipTable:    make(map[string]int),
+				ctx:        ctx,
+				cancel:     cancel,
+				cutoff:     make(chan struct{}),
+				MaxConnNum: a.maxConnPerUser,
 			}
 			user.setIPLimit(u.GetIPLimit())
 			user.SetSpeedLimit(u.GetSpeedLimit())

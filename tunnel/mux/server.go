@@ -7,6 +7,7 @@ import (
 	"github.com/xtaci/smux"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/queue"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/tunnel"
@@ -66,6 +67,9 @@ func (s *Server) acceptConnWorker() {
 					case <-s.ctx.Done():
 						log.Debug("exiting")
 						return
+					default:
+						log.Warn("mux accept queue full, dropping stream from", conn.RemoteAddr())
+						_ = stream.Close()
 					}
 				}
 			}(smuxSession, conn)
@@ -94,6 +98,7 @@ func (s *Server) Close() error {
 func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	serverConfig := config.FromContext(ctx, Name).(*Config)
 	ctx, cancel := context.WithCancel(ctx)
+	qsize := queue.FromContext(ctx).ResolveAcceptQueueSize()
 	server := &Server{
 		underlay:      underlay,
 		streamBuffer:  serverConfig.Mux.StreamBuffer,
@@ -101,7 +106,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 		protocol:      serverConfig.Mux.Protocol,
 		ctx:           ctx,
 		cancel:        cancel,
-		connChan:      make(chan tunnel.Conn, 32),
+		connChan:      make(chan tunnel.Conn, qsize),
 	}
 	go server.acceptConnWorker()
 	log.Debug("mux server created")
