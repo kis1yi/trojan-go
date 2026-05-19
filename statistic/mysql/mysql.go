@@ -2,14 +2,16 @@ package mysql
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	// MySQL Driver
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
@@ -221,8 +223,37 @@ func (a *Authenticator) SetUserQuota(hash string, quota int64) error {
 	return err
 }
 
-func connectDatabase(driverName, username, password, ip string, port int, dbName string) (*sql.DB, error) {
+func connectDatabase(driverName, username, password, ip string, port int, dbName string, tlsMode, tlsCA string) (*sql.DB, error) {
+	tlsParam := ""
+	switch strings.ToLower(tlsMode) {
+	case "true", "skip-verify":
+		tlsParam = "&tls=" + strings.ToLower(tlsMode)
+	case "custom":
+		if tlsCA == "" {
+			return nil, common.NewError("mysql tls_mode is 'custom' but tls_ca is not set")
+		}
+		caPEM, err := os.ReadFile(tlsCA)
+		if err != nil {
+			return nil, common.NewError("failed to read mysql tls_ca file").Base(err)
+		}
+		rootCAs := x509.NewCertPool()
+		if ok := rootCAs.AppendCertsFromPEM(caPEM); !ok {
+			return nil, common.NewError("failed to append mysql tls_ca certificates")
+		}
+		tlsConfig := &tls.Config{
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
+		}
+		if err := mysql.RegisterTLSConfig("trojan-go-custom", tlsConfig); err != nil {
+			return nil, common.NewError("failed to register mysql custom TLS config").Base(err)
+		}
+		tlsParam = "&tls=trojan-go-custom"
+	}
+
 	path := strings.Join([]string{username, ":", password, "@tcp(", ip, ":", fmt.Sprintf("%d", port), ")/", dbName, "?charset=utf8"}, "")
+	if tlsParam != "" {
+		path += tlsParam
+	}
 	return sql.Open(driverName, path)
 }
 
@@ -235,6 +266,8 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 		cfg.MySQL.ServerHost,
 		cfg.MySQL.ServerPort,
 		cfg.MySQL.Database,
+		cfg.MySQL.TLSMode,
+		cfg.MySQL.TLSCA,
 	)
 	if err != nil {
 		return nil, common.NewError("Failed to connect to database server").Base(err)

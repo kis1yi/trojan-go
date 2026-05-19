@@ -116,7 +116,9 @@ All other unspecified options will be filled with the values given below.
     "username": "",
     "password": "",
     "check_rate": 60,
-    "query_timeout": 5
+    "query_timeout": 5,
+    "tls_mode": "",
+    "tls_ca": ""
   },
   "api": {
     "enabled": false,
@@ -384,7 +386,13 @@ trojan-go is compatible with Trojan's MySQL-based user management, but the more 
 
 `query_timeout` is the per-call deadline (in seconds) applied to every MySQL `Query`/`Exec`. `0` or a negative value selects the default of `5` seconds. Each updater iteration starts with a `PingContext` health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited `Warn` is emitted. Cumulative driver/query failures are exposed as the `mysql_errors_total` counter for the metrics surface.
 
-Other options are self-explanatory and will not be elaborated on further.
+`tls_mode` controls TLS encryption for the MySQL connection. Supported values:
+- `""` (empty, default): No TLS. The connection is plaintext.
+- `"true"`: Enable TLS and verify the server certificate against the system CA store. Use this when the MySQL server uses a certificate from a public CA (e.g. Let's Encrypt).
+- `"skip-verify"`: Enable TLS but skip server certificate verification. Better than plaintext, but vulnerable to MITM attacks. Use only for testing or when verification is impossible.
+- `"custom"`: Enable TLS and verify the server certificate against a custom CA file specified by `tls_ca`.
+
+`tls_ca` is the path to a PEM-encoded CA certificate file. Required when `tls_mode` is `"custom"`. The file is read once at startup and the CA pool is used to validate the MySQL server's certificate. Not used for other modes.
 
 The users table structure is consistent with the Trojan version definition. Below is an example of creating the users table. Note that the password here refers to the SHA224 hash of the password (a string), and the units of traffic download, upload, quota are bytes. You can add and delete users, or specify users' traffic quotas by modifying the user record in the database's users table. trojan-go will automatically update the currently valid user list based on all users' traffic quotas. If download+upload>quota, the trojan-go server will reject that user's connection.
 

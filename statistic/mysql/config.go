@@ -15,6 +15,8 @@ type MySQLConfig struct {
 	Password     string `json:"password" yaml:"password"`
 	CheckRate    int    `json:"check_rate" yaml:"check-rate"`
 	QueryTimeout int    `json:"query_timeout" yaml:"query-timeout"` // seconds; <=0 means default
+	TLSMode      string `json:"tls_mode" yaml:"tls-mode"`           // "", "true", "skip-verify", "custom"
+	TLSCA        string `json:"tls_ca" yaml:"tls-ca"`               // path to CA cert (for "custom")
 }
 
 type Config struct {
