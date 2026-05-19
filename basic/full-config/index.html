@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="4122"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="4243"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -188,7 +188,9 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;username&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;password&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;check_rate&#34;</span>: <span style="color:#ae81ff">60</span>,
-    <span style="color:#f92672">&#34;query_timeout&#34;</span>: <span style="color:#ae81ff">5</span>
+    <span style="color:#f92672">&#34;query_timeout&#34;</span>: <span style="color:#ae81ff">5</span>,
+    <span style="color:#f92672">&#34;tls_mode&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
+    <span style="color:#f92672">&#34;tls_ca&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>
   },
   <span style="color:#f92672">&#34;api&#34;</span>: {
     <span style="color:#f92672">&#34;enabled&#34;</span>: <span style="color:#66d9ef">false</span>,
@@ -432,7 +434,14 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>enabled</code> indicates whether to use a MySQL database for user authentication.</p>
 <p><code>check_rate</code> is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.</p>
 <p><code>query_timeout</code> is the per-call deadline (in seconds) applied to every MySQL <code>Query</code>/<code>Exec</code>. <code>0</code> or a negative value selects the default of <code>5</code> seconds. Each updater iteration starts with a <code>PingContext</code> health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited <code>Warn</code> is emitted. Cumulative driver/query failures are exposed as the <code>mysql_errors_total</code> counter for the metrics surface.</p>
-<p>Other options are self-explanatory and will not be elaborated on further.</p>
+<p><code>tls_mode</code> controls TLS encryption for the MySQL connection. Supported values:</p>
+<ul>
+<li><code>&quot;&quot;</code> (empty, default): No TLS. The connection is plaintext.</li>
+<li><code>&quot;true&quot;</code>: Enable TLS and verify the server certificate against the system CA store. Use this when the MySQL server uses a certificate from a public CA (e.g. Let&rsquo;s Encrypt).</li>
+<li><code>&quot;skip-verify&quot;</code>: Enable TLS but skip server certificate verification. Better than plaintext, but vulnerable to MITM attacks. Use only for testing or when verification is impossible.</li>
+<li><code>&quot;custom&quot;</code>: Enable TLS and verify the server certificate against a custom CA file specified by <code>tls_ca</code>.</li>
+</ul>
+<p><code>tls_ca</code> is the path to a PEM-encoded CA certificate file. Required when <code>tls_mode</code> is <code>&quot;custom&quot;</code>. The file is read once at startup and the CA pool is used to validate the MySQL server&rsquo;s certificate. Not used for other modes.</p>
 <p>The users table structure is consistent with the Trojan version definition. Below is an example of creating the users table. Note that the password here refers to the SHA224 hash of the password (a string), and the units of traffic download, upload, quota are bytes. You can add and delete users, or specify users' traffic quotas by modifying the user record in the database&rsquo;s users table. trojan-go will automatically update the currently valid user list based on all users' traffic quotas. If download+upload&gt;quota, the trojan-go server will reject that user&rsquo;s connection.</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-mysql" data-lang="mysql"><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> <span style="color:#a6e22e">users</span> (
     id <span style="color:#66d9ef">INT</span> <span style="color:#66d9ef">UNSIGNED</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span> <span style="color:#66d9ef">AUTO_INCREMENT</span>,
