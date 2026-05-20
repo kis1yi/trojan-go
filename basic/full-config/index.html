@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="4243"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="4264"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -210,6 +210,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;trojan_auth&#34;</span>: <span style="color:#ae81ff">4</span>,
     <span style="color:#f92672">&#34;tcp_relay_idle&#34;</span>: <span style="color:#ae81ff">300</span>,
     <span style="color:#f92672">&#34;udp_session_idle&#34;</span>: <span style="color:#ae81ff">60</span>,
+    <span style="color:#f92672">&#34;tcp_dial&#34;</span>: <span style="color:#ae81ff">10</span>,
     <span style="color:#f92672">&#34;fallback_dial&#34;</span>: <span style="color:#ae81ff">5</span>,
     <span style="color:#f92672">&#34;fallback_idle&#34;</span>: <span style="color:#ae81ff">30</span>
   },
@@ -491,7 +492,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>allow_payload_capture</code> controls whether the <code>GetRecords</code> RPC is allowed to stream raw connection payloads (in addition to per-connection metadata). It defaults to <code>false</code>. The flag is <strong>only</strong> honoured when the binary is built with the <code>apidebug</code> build tag; default release builds silently downgrade <code>IncludePayload=true</code> requests to metadata-only streaming so production scripts cannot leak bytes regardless of the config value. With the <code>apidebug</code> tag and the flag set to <code>false</code> the RPC returns <code>PermissionDenied</code>, making misconfiguration loud rather than silent. Leave this at <code>false</code> outside of focused debugging.</p>
 <p>Warning: <strong>Do not expose an API service without mutual TLS authentication directly to the internet, as it may lead to various security issues.</strong> When <code>api_addr</code> is bound to a non-loopback address, trojan-go logs a <code>WARN</code> at startup if TLS is not enabled, and a separate <code>WARN</code> if TLS is enabled but <code>verify_client</code> is off. The server is not refused so existing private-network deployments keep working, but plaintext gRPC and any management commands travelling over an exposed interface should be considered world-readable.</p>
 <h3 id="timeout-options"><code>timeout</code> Options</h3>
-<p>The <code>timeout</code> block centralises every deadline that protects the server from slow or stuck peers. All values are in seconds: <code>0</code> selects the documented default, <code>-1</code> disables the corresponding deadline.</p>
+<p>The <code>timeout</code> block centralises every deadline that protects the proxy instance from slow or stuck peers and outbound dials. All values are in seconds: <code>0</code> selects the documented default, <code>-1</code> disables the corresponding deadline.</p>
 <table>
 <thead>
 <tr>
@@ -520,6 +521,11 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <td><code>udp_session_idle</code></td>
 <td><code>60</code></td>
 <td>Read deadline applied before each UDP packet read.</td>
+</tr>
+<tr>
+<td><code>tcp_dial</code></td>
+<td><code>10</code></td>
+<td>Outbound TCP dial deadline for direct freedom connections and upstream SOCKS forward-proxy connections.</td>
 </tr>
 <tr>
 <td><code>fallback_dial</code></td>
