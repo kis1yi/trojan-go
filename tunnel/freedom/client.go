@@ -3,11 +3,13 @@ package freedom
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/txthinking/socks5"
 	"golang.org/x/net/proxy"
 
 	"github.com/kis1yi/trojan-go/common"
+	"github.com/kis1yi/trojan-go/common/timeout"
 	"github.com/kis1yi/trojan-go/config"
 	"github.com/kis1yi/trojan-go/tunnel"
 )
@@ -22,6 +24,14 @@ type Client struct {
 	proxyAddr    *tunnel.Address
 	username     string
 	password     string
+	dialTimeout  time.Duration
+}
+
+func (c *Client) dialContext() (context.Context, context.CancelFunc) {
+	if c.dialTimeout <= 0 {
+		return c.ctx, func() {}
+	}
+	return context.WithTimeout(c.ctx, c.dialTimeout)
 }
 
 func (c *Client) DialConn(addr *tunnel.Address, _ tunnel.Tunnel) (tunnel.Conn, error) {
@@ -34,11 +44,26 @@ func (c *Client) DialConn(addr *tunnel.Address, _ tunnel.Tunnel) (tunnel.Conn, e
 				Password: c.password,
 			}
 		}
-		dialer, err := proxy.SOCKS5("tcp", c.proxyAddr.String(), auth, proxy.Direct)
-		if err != nil {
-			return nil, common.NewError("freedom failed to init socks dialer")
+		forwardDialer := &net.Dialer{
+			Timeout: c.dialTimeout,
 		}
-		conn, err := dialer.Dial("tcp", addr.String())
+		dialer, err := proxy.SOCKS5("tcp", c.proxyAddr.String(), auth, forwardDialer)
+		if err != nil {
+			return nil, common.NewError("freedom failed to init socks dialer").Base(err)
+		}
+		dialCtx, cancel := c.dialContext()
+		defer cancel()
+		contextDialer, ok := dialer.(proxy.ContextDialer)
+		if !ok {
+			conn, err := dialer.Dial("tcp", addr.String())
+			if err != nil {
+				return nil, common.NewError("freedom failed to dial target address via socks proxy " + addr.String()).Base(err)
+			}
+			return &Conn{
+				Conn: conn,
+			}, nil
+		}
+		conn, err := contextDialer.DialContext(dialCtx, "tcp", addr.String())
 		if err != nil {
 			return nil, common.NewError("freedom failed to dial target address via socks proxy " + addr.String()).Base(err)
 		}
@@ -50,8 +75,12 @@ func (c *Client) DialConn(addr *tunnel.Address, _ tunnel.Tunnel) (tunnel.Conn, e
 	if c.preferIPv4 {
 		network = "tcp4"
 	}
-	dialer := new(net.Dialer)
-	tcpConn, err := dialer.DialContext(c.ctx, network, addr.String())
+	dialer := &net.Dialer{
+		Timeout: c.dialTimeout,
+	}
+	dialCtx, cancel := c.dialContext()
+	defer cancel()
+	tcpConn, err := dialer.DialContext(dialCtx, network, addr.String())
 	if err != nil {
 		return nil, common.NewError("freedom failed to dial " + addr.String()).Base(err)
 	}
@@ -131,5 +160,6 @@ func NewClient(ctx context.Context, _ tunnel.Client) (*Client, error) {
 		proxyAddr:    addr,
 		username:     cfg.ForwardProxy.Username,
 		password:     cfg.ForwardProxy.Password,
+		dialTimeout:  timeout.FromContext(ctx).ResolveTCPDial(),
 	}, nil
 }

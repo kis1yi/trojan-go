@@ -21,6 +21,7 @@ const (
 	DefaultTrojanAuth     = 4 * time.Second
 	DefaultTCPRelayIdle   = 5 * time.Minute
 	DefaultUDPSessionIdle = 60 * time.Second
+	DefaultTCPDial        = 10 * time.Second
 	DefaultFallbackDial   = 5 * time.Second
 	DefaultFallbackIdle   = 30 * time.Second
 )
@@ -38,6 +39,7 @@ type TimeoutConfig struct {
 	TrojanAuth     int `json:"trojan_auth" yaml:"trojan-auth"`
 	TCPRelayIdle   int `json:"tcp_relay_idle" yaml:"tcp-relay-idle"`
 	UDPSessionIdle int `json:"udp_session_idle" yaml:"udp-session-idle"`
+	TCPDial        int `json:"tcp_dial" yaml:"tcp-dial"`
 	FallbackDial   int `json:"fallback_dial" yaml:"fallback-dial"`
 	FallbackIdle   int `json:"fallback_idle" yaml:"fallback-idle"`
 }
@@ -70,6 +72,10 @@ func (c TimeoutConfig) ResolveTCPRelayIdle() time.Duration {
 
 func (c TimeoutConfig) ResolveUDPSessionIdle() time.Duration {
 	return resolve(c.UDPSessionIdle, DefaultUDPSessionIdle)
+}
+
+func (c TimeoutConfig) ResolveTCPDial() time.Duration {
+	return resolve(c.TCPDial, DefaultTCPDial)
 }
 
 func (c TimeoutConfig) ResolveFallbackDial() time.Duration {

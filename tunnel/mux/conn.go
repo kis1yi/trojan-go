@@ -2,7 +2,6 @@ package mux
 
 import (
 	"io"
-	"math/rand"
 
 	"github.com/kis1yi/trojan-go/log"
 	"github.com/kis1yi/trojan-go/tunnel"
@@ -39,10 +38,6 @@ stick2:
 }
 
 func (c *stickyConn) Close() error {
-	const maxPaddingLength = 512
-	padding := [maxPaddingLength + 8]byte{'A', 'B', 'C', 'D', 'E', 'F'} // for debugging
-	buf := c.stickToPayload(nil)
-	c.Write(append(buf, padding[:rand.Intn(maxPaddingLength)]...))
 	return c.Conn.Close()
 }
 

@@ -68,6 +68,7 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 		// GREASE ECH mode: inject GREASEEncryptedClientHelloExtension if not already present
 		spec, err := tls.UTLSIdToSpec(c.helloID)
 		if err != nil {
+			conn.Close()
 			return nil, common.NewError("failed to get TLS fingerprint spec for GREASE ECH").Base(err)
 		}
 		hasGREASE := false
@@ -82,6 +83,7 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 		}
 		tlsConn = tls.UClient(conn, tlsConfig, tls.HelloCustom)
 		if err := tlsConn.ApplyPreset(&spec); err != nil {
+			conn.Close()
 			return nil, common.NewError("tls failed to apply GREASE ECH preset").Base(err)
 		}
 	} else {
@@ -89,6 +91,7 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 	}
 
 	if err := tlsConn.Handshake(); err != nil {
+		conn.Close()
 		return nil, common.NewError("tls failed to handshake with remote server").Base(err)
 	}
 	return &transport.Conn{

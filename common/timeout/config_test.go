@@ -22,6 +22,9 @@ func TestResolveDefaults(t *testing.T) {
 	if got, want := c.ResolveUDPSessionIdle(), DefaultUDPSessionIdle; got != want {
 		t.Errorf("UDPSessionIdle default: got %v, want %v", got, want)
 	}
+	if got, want := c.ResolveTCPDial(), DefaultTCPDial; got != want {
+		t.Errorf("TCPDial default: got %v, want %v", got, want)
+	}
 	if got, want := c.ResolveFallbackDial(), DefaultFallbackDial; got != want {
 		t.Errorf("FallbackDial default: got %v, want %v", got, want)
 	}
@@ -34,12 +37,16 @@ func TestResolveExplicitAndDisabled(t *testing.T) {
 	c := TimeoutConfig{
 		TLSHandshake: 7,
 		TrojanAuth:   -1,
+		TCPDial:      -1,
 	}
 	if got, want := c.ResolveTLSHandshake(), 7*time.Second; got != want {
 		t.Errorf("explicit TLSHandshake: got %v, want %v", got, want)
 	}
 	if got := c.ResolveTrojanAuth(); got != 0 {
 		t.Errorf("disabled TrojanAuth must resolve to 0, got %v", got)
+	}
+	if got := c.ResolveTCPDial(); got != 0 {
+		t.Errorf("disabled TCPDial must resolve to 0, got %v", got)
 	}
 }
 

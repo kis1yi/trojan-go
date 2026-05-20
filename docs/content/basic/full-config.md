@@ -138,6 +138,7 @@ All other unspecified options will be filled with the values given below.
     "trojan_auth": 4,
     "tcp_relay_idle": 300,
     "udp_session_idle": 60,
+    "tcp_dial": 10,
     "fallback_dial": 5,
     "fallback_idle": 30
   },
@@ -456,7 +457,7 @@ Warning: **Do not expose an API service without mutual TLS authentication direct
 
 ### ```timeout``` Options
 
-The `timeout` block centralises every deadline that protects the server from slow or stuck peers. All values are in seconds: `0` selects the documented default, `-1` disables the corresponding deadline.
+The `timeout` block centralises every deadline that protects the proxy instance from slow or stuck peers and outbound dials. All values are in seconds: `0` selects the documented default, `-1` disables the corresponding deadline.
 
 | Field | Default | Applied at |
 |---|---|---|
@@ -464,6 +465,7 @@ The `timeout` block centralises every deadline that protects the server from slo
 | `trojan_auth` | `4` | Read deadline before the 56-byte hash + metadata block. The deadline is cleared on successful auth so long-lived tunnels do not inherit it, and is also cleared before the rewind/fallback path so a fallback backend never inherits a nearly-expired deadline. |
 | `tcp_relay_idle` | `300` | Half-duplex idle on each direction of the TCP relay loop. The read deadline is refreshed on every successful read; an active tunnel under sustained throughput is not killed prematurely. |
 | `udp_session_idle` | `60` | Read deadline applied before each UDP packet read. |
+| `tcp_dial` | `10` | Outbound TCP dial deadline for direct freedom connections and upstream SOCKS forward-proxy connections. |
 | `fallback_dial` | `5` | `net.DialTimeout` for the redirector's outbound dial when sending a probe to the fallback backend. |
 | `fallback_idle` | `30` | Half-duplex idle on the redirector's relay copies, refreshed on every successful read. |
 

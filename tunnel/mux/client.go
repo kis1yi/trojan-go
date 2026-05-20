@@ -40,17 +40,44 @@ type Client struct {
 	protocol       int
 	ctx            context.Context
 	cancel         context.CancelFunc
+	closed         bool
 }
 
 func (c *Client) Close() error {
-	c.cancel()
 	c.clientPoolLock.Lock()
-	defer c.clientPoolLock.Unlock()
-	for id, info := range c.clientPool {
-		info.client.Close()
-		log.Debug("mux client", id, "closed")
+	if c.closed {
+		c.clientPoolLock.Unlock()
+		c.cancel()
+		return nil
 	}
+	c.closed = true
+	clients := c.drainClientPoolLocked()
+	c.clientPoolLock.Unlock()
+
+	c.cancel()
+	closeMuxClients(clients)
 	return nil
+}
+
+func (c *Client) drainClientPoolLocked() []*smuxClientInfo {
+	clients := make([]*smuxClientInfo, 0, len(c.clientPool))
+	for id, info := range c.clientPool {
+		delete(c.clientPool, id)
+		log.Debug("mux client", id, "closed")
+		clients = append(clients, info)
+	}
+	return clients
+}
+
+func closeMuxClients(clients []*smuxClientInfo) {
+	for _, info := range clients {
+		if info.underlayConn != nil {
+			_ = info.underlayConn.Close()
+		}
+		if info.client != nil {
+			_ = info.client.Close()
+		}
+	}
 }
 
 func (c *Client) cleanLoop() {
@@ -66,17 +93,16 @@ func (c *Client) cleanLoop() {
 		select {
 		case <-time.After(checkDuration):
 			c.clientPoolLock.Lock()
+			var clientsToClose []*smuxClientInfo
 			for id, info := range c.clientPool {
 				if info.client.IsClosed() {
-					info.client.Close()
-					info.underlayConn.Close()
 					delete(c.clientPool, id)
 					log.Info("mux client", id, "is dead")
+					clientsToClose = append(clientsToClose, info)
 				} else if info.client.NumStreams() == 0 && time.Since(info.lastActiveTime) > c.timeout {
-					info.client.Close()
-					info.underlayConn.Close()
 					delete(c.clientPool, id)
 					log.Info("mux client", id, "is closed due to inactivity")
+					clientsToClose = append(clientsToClose, info)
 				}
 			}
 			log.Debug("current mux clients: ", len(c.clientPool))
@@ -84,16 +110,14 @@ func (c *Client) cleanLoop() {
 				log.Debug(fmt.Sprintf("  - %x: %d/%d", id, info.client.NumStreams(), c.concurrency))
 			}
 			c.clientPoolLock.Unlock()
+			closeMuxClients(clientsToClose)
 		case <-c.ctx.Done():
 			log.Debug("shutting down mux cleaner..")
 			c.clientPoolLock.Lock()
-			for id, info := range c.clientPool {
-				info.client.Close()
-				info.underlayConn.Close()
-				delete(c.clientPool, id)
-				log.Debug("mux client", id, "closed")
-			}
+			c.closed = true
+			clients := c.drainClientPoolLocked()
 			c.clientPoolLock.Unlock()
+			closeMuxClients(clients)
 			return
 		}
 	}
@@ -136,13 +160,14 @@ func (c *Client) newMuxClient() (*smuxClientInfo, error) {
 }
 
 func (c *Client) DialConn(*tunnel.Address, tunnel.Tunnel) (tunnel.Conn, error) {
+	var clientsToClose []*smuxClientInfo
+
 	createNewConn := func(info *smuxClientInfo) (tunnel.Conn, error) {
 		rwc, err := info.client.Open()
 		info.lastActiveTime = time.Now()
 		if err != nil {
-			info.underlayConn.Close()
-			info.client.Close()
 			delete(c.clientPool, info.id)
+			clientsToClose = append(clientsToClose, info)
 			return nil, common.NewError("mux failed to open stream from client").Base(err)
 		}
 		return &Conn{
@@ -152,23 +177,35 @@ func (c *Client) DialConn(*tunnel.Address, tunnel.Tunnel) (tunnel.Conn, error) {
 	}
 
 	c.clientPoolLock.Lock()
-	defer c.clientPoolLock.Unlock()
+	if c.closed {
+		c.clientPoolLock.Unlock()
+		return nil, common.NewError("mux client closed")
+	}
 	for _, info := range c.clientPool {
 		if info.client.IsClosed() {
 			delete(c.clientPool, info.id)
 			log.Info(fmt.Sprintf("Mux client %x is closed", info.id))
+			clientsToClose = append(clientsToClose, info)
 			continue
 		}
 		if info.client.NumStreams() < c.concurrency || c.concurrency <= 0 {
-			return createNewConn(info)
+			conn, err := createNewConn(info)
+			c.clientPoolLock.Unlock()
+			closeMuxClients(clientsToClose)
+			return conn, err
 		}
 	}
 
 	info, err := c.newMuxClient()
 	if err != nil {
+		c.clientPoolLock.Unlock()
+		closeMuxClients(clientsToClose)
 		return nil, common.NewError("no available mux client found").Base(err)
 	}
-	return createNewConn(info)
+	conn, err := createNewConn(info)
+	c.clientPoolLock.Unlock()
+	closeMuxClients(clientsToClose)
+	return conn, err
 }
 
 func (c *Client) DialPacket(tunnel.Tunnel) (tunnel.PacketConn, error) {
