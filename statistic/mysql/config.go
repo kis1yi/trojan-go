@@ -7,16 +7,17 @@ import (
 )
 
 type MySQLConfig struct {
-	Enabled      bool   `json:"enabled" yaml:"enabled"`
-	ServerHost   string `json:"server_addr" yaml:"server-addr"`
-	ServerPort   int    `json:"server_port" yaml:"server-port"`
-	Database     string `json:"database" yaml:"database"`
-	Username     string `json:"username" yaml:"username"`
-	Password     string `json:"password" yaml:"password"`
-	CheckRate    int    `json:"check_rate" yaml:"check-rate"`
-	QueryTimeout int    `json:"query_timeout" yaml:"query-timeout"` // seconds; <=0 means default
-	TLSMode      string `json:"tls_mode" yaml:"tls-mode"`           // "", "true", "skip-verify", "custom"
-	TLSCA        string `json:"tls_ca" yaml:"tls-ca"`               // path to CA cert (for "custom")
+	Enabled          bool   `json:"enabled" yaml:"enabled"`
+	ServerHost       string `json:"server_addr" yaml:"server-addr"`
+	ServerPort       int    `json:"server_port" yaml:"server-port"`
+	Database         string `json:"database" yaml:"database"`
+	Username         string `json:"username" yaml:"username"`
+	Password         string `json:"password" yaml:"password"`
+	CheckRate        int    `json:"check_rate" yaml:"check-rate"`
+	QueryTimeout     int    `json:"query_timeout" yaml:"query-timeout"`           // seconds; <=0 means default
+	TrafficBatchSize int    `json:"traffic_batch_size" yaml:"traffic-batch-size"` // users per traffic UPDATE; <=0 means default
+	TLSMode          string `json:"tls_mode" yaml:"tls-mode"`                     // "", "true", "skip-verify", "custom"
+	TLSCA            string `json:"tls_ca" yaml:"tls-ca"`                         // path to CA cert (for "custom")
 }
 
 type Config struct {
@@ -29,13 +30,22 @@ type Config struct {
 // freeze the updater goroutine.
 const DefaultQueryTimeout = 5 * time.Second
 
+const (
+	// DefaultTrafficBatchSize reduces a full 500-user accounting sweep to one
+	// UPDATE while keeping the generated statement comfortably below MySQL's
+	// prepared-statement placeholder and packet limits.
+	DefaultTrafficBatchSize = 500
+	MaxTrafficBatchSize     = 1000
+)
+
 func init() {
 	config.RegisterConfigCreator(Name, func() interface{} {
 		return &Config{
 			MySQL: MySQLConfig{
-				ServerPort:   3306,
-				CheckRate:    30,
-				QueryTimeout: 5,
+				ServerPort:       3306,
+				CheckRate:        30,
+				QueryTimeout:     5,
+				TrafficBatchSize: DefaultTrafficBatchSize,
 			},
 		}
 	})

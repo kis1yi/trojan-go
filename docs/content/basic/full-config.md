@@ -117,6 +117,7 @@ All other unspecified options will be filled with the values given below.
     "password": "",
     "check_rate": 60,
     "query_timeout": 5,
+    "traffic_batch_size": 500,
     "tls_mode": "",
     "tls_ca": ""
   },
@@ -386,6 +387,10 @@ trojan-go is compatible with Trojan's MySQL-based user management, but the more 
 `check_rate` is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.
 
 `query_timeout` is the per-call deadline (in seconds) applied to every MySQL `Query`/`Exec`. `0` or a negative value selects the default of `5` seconds. Each updater iteration starts with a `PingContext` health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited `Warn` is emitted. Cumulative driver/query failures are exposed as the `mysql_errors_total` counter for the metrics surface.
+
+`traffic_batch_size` controls how many users' non-zero traffic deltas are written by one MySQL `UPDATE`. `0` or a negative value selects the default of `500`; valid explicit values are `1` through `1000`. A value of `1` uses the legacy single-user SQL statement as an operational fallback, while retaining the same in-memory retry behavior as batch mode. Values above `1000` are rejected at startup.
+
+Traffic is removed from the in-process counters only after it has first been moved into a pending buffer. A failed `UPDATE` leaves the affected and unattempted batches pending and skips the user refresh for that cycle; they are merged with newly arrived traffic and retried after the next successful database health check. Successfully written batches are not retried. This protects counters from ordinary transient database errors, but the pending buffer is not durable across process termination. An ambiguous connection failure after the database committed an `UPDATE` but before the client received its response can still cause the batch to be counted again on retry; exactly-once persistence requires an external durable batch journal and is outside this mode.
 
 `tls_mode` controls TLS encryption for the MySQL connection. Supported values:
 - `""` (empty, default): No TLS. The connection is plaintext.

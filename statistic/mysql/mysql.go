@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,12 @@ import (
 
 const Name = "MYSQL"
 
+type trafficDelta struct {
+	hash string
+	sent uint64
+	recv uint64
+}
+
 // healthWarnInterval bounds how often the updater loop emits a Warn log line
 // when the database is unreachable. P1-3: do not flood the log with
 // per-iteration failures during an outage; log once per interval and keep
@@ -31,15 +38,127 @@ const healthWarnInterval = 30 * time.Second
 
 type Authenticator struct {
 	*memory.Authenticator
-	db             *sql.DB
-	updateDuration time.Duration
-	queryTimeout   time.Duration
-	ctx            context.Context
+	db                *sql.DB
+	updateDuration    time.Duration
+	queryTimeout      time.Duration
+	trafficBatchSize  int
+	pendingTraffic    map[string]trafficDelta
+	failedFlushCycles uint64
+	ctx               context.Context
 	// errCount is the in-process MySQL error counter exported as
 	// "mysql_errors_total" via P1-5 observability. It is incremented on
 	// any failed db.PingContext / db.QueryContext / db.ExecContext call
 	// from the updater, and on Set* helpers below. Read with atomic.LoadUint64.
 	errCount uint64
+}
+
+func (a *Authenticator) collectPendingTraffic() {
+	if a.pendingTraffic == nil {
+		a.pendingTraffic = make(map[string]trafficDelta)
+	}
+	for _, user := range a.ListUsers() {
+		sent, recv := user.ResetTraffic()
+		if sent == 0 && recv == 0 {
+			continue
+		}
+		hash := user.GetHash()
+		pending := a.pendingTraffic[hash]
+		pending.hash = hash
+		pending.sent += sent
+		pending.recv += recv
+		a.pendingTraffic[hash] = pending
+	}
+}
+
+func (a *Authenticator) sortedPendingTraffic() []trafficDelta {
+	pending := make([]trafficDelta, 0, len(a.pendingTraffic))
+	for _, delta := range a.pendingTraffic {
+		if delta.sent != 0 || delta.recv != 0 {
+			pending = append(pending, delta)
+		}
+	}
+	sort.Slice(pending, func(i, j int) bool {
+		return pending[i].hash < pending[j].hash
+	})
+	return pending
+}
+
+func buildTrafficUpdate(batch []trafficDelta) (string, []interface{}) {
+	if len(batch) == 1 {
+		delta := batch[0]
+		return "UPDATE `users` SET `upload`=`upload`+?, `download`=`download`+? WHERE `password`=?;", []interface{}{delta.recv, delta.sent, delta.hash}
+	}
+
+	var query strings.Builder
+	query.WriteString("UPDATE `users` SET `upload`=`upload`+CASE `password`")
+	args := make([]interface{}, 0, len(batch)*5)
+	for _, delta := range batch {
+		query.WriteString(" WHEN ? THEN ?")
+		args = append(args, delta.hash, delta.recv)
+	}
+	query.WriteString(" ELSE 0 END, `download`=`download`+CASE `password`")
+	for _, delta := range batch {
+		query.WriteString(" WHEN ? THEN ?")
+		args = append(args, delta.hash, delta.sent)
+	}
+	query.WriteString(" ELSE 0 END WHERE `password` IN (")
+	for i, delta := range batch {
+		if i > 0 {
+			query.WriteByte(',')
+		}
+		query.WriteByte('?')
+		args = append(args, delta.hash)
+	}
+	query.WriteString(");")
+	return query.String(), args
+}
+
+func (a *Authenticator) pendingTrafficStats() (int, uint64) {
+	var bytes uint64
+	for _, delta := range a.pendingTraffic {
+		bytes += delta.sent + delta.recv
+	}
+	return len(a.pendingTraffic), bytes
+}
+
+func (a *Authenticator) flushPendingTraffic() error {
+	pending := a.sortedPendingTraffic()
+	if len(pending) == 0 {
+		a.failedFlushCycles = 0
+		return nil
+	}
+
+	started := time.Now()
+	batchSize := a.trafficBatchSize
+	if batchSize <= 0 {
+		batchSize = DefaultTrafficBatchSize
+	}
+	for start := 0; start < len(pending); start += batchSize {
+		end := start + batchSize
+		if end > len(pending) {
+			end = len(pending)
+		}
+		batch := pending[start:end]
+		query, args := buildTrafficUpdate(batch)
+		ctx, cancel := a.queryCtx()
+		_, err := a.db.ExecContext(ctx, query, args...)
+		cancel()
+		if err != nil {
+			a.recordErr()
+			a.failedFlushCycles++
+			users, bytes := a.pendingTrafficStats()
+			wrapped := common.NewError("failed to flush buffered traffic batch").Base(err)
+			log.Errorf("%s; pending_users=%d pending_bytes=%d failed_cycles=%d flush_duration=%s", wrapped, users, bytes, a.failedFlushCycles, time.Since(started))
+			return wrapped
+		}
+		for _, delta := range batch {
+			delete(a.pendingTraffic, delta.hash)
+		}
+	}
+
+	a.failedFlushCycles = 0
+	log.Infof("buffered traffic has been written into the database; users=%d flush_duration=%s", len(pending), time.Since(started))
+	return nil
 }
 
 // recordErr increments the in-process MySQL error counter. Always call it
@@ -77,6 +196,79 @@ func (a *Authenticator) pingDB() error {
 	return nil
 }
 
+func (a *Authenticator) refreshUsers() error {
+	ctx, cancel := a.queryCtx()
+	defer cancel()
+	rows, err := a.db.QueryContext(ctx, "SELECT password,quota,download,upload,speed_limit_up,speed_limit_down,ip_limit FROM users")
+	if err != nil {
+		a.recordErr()
+		wrapped := common.NewError("failed to pull data from the database").Base(err)
+		log.Error(wrapped)
+		return wrapped
+	}
+	defer rows.Close()
+
+	userMap := make(map[string]bool)
+	for rows.Next() {
+		var hash string
+		var quota, download, upload int64
+		var speedLimitUp, speedLimitDown, ipLimit int
+		if err := rows.Scan(&hash, &quota, &download, &upload, &speedLimitUp, &speedLimitDown, &ipLimit); err != nil {
+			a.recordErr()
+			wrapped := common.NewError("failed to obtain data from the query result").Base(err)
+			log.Error(wrapped)
+			return wrapped
+		}
+		userMap[hash] = true
+		if download+upload < quota || quota < 0 {
+			a.AddUser(hash)
+			a.Authenticator.SetUserSpeedLimit(hash, speedLimitUp, speedLimitDown)
+			a.Authenticator.SetUserIPLimit(hash, ipLimit)
+			// P0-3b: propagate quota into the memory layer so that
+			// in-process callers (e.g. the active-cutoff hook in
+			// P0-3d, and `User.GetQuota` consumers) see the real
+			// per-user limit. Use the embedded `Authenticator`'s
+			// `SetUserQuota`, NOT the wrapper above, to avoid issuing
+			// a redundant `UPDATE users SET quota=?` against the DB
+			// for a value we just read from it.
+			a.Authenticator.SetUserQuota(hash, quota)
+		} else {
+			a.DelUser(hash)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		a.recordErr()
+		wrapped := common.NewError("failed while reading user rows").Base(err)
+		log.Error(wrapped)
+		return wrapped
+	}
+
+	for _, user := range a.ListUsers() {
+		if _, ok := userMap[user.GetHash()]; !ok {
+			a.DelUser(user.GetHash())
+		}
+	}
+	return nil
+}
+
+func (a *Authenticator) syncTrafficAndUsers() error {
+	a.collectPendingTraffic()
+	if err := a.flushPendingTraffic(); err != nil {
+		return err
+	}
+	return a.refreshUsers()
+}
+
+func (a *Authenticator) waitForNextUpdate() bool {
+	select {
+	case <-time.After(a.updateDuration):
+		return true
+	case <-a.ctx.Done():
+		log.Debug("MySQL daemon exiting...")
+		return false
+	}
+}
+
 func (a *Authenticator) updater() {
 	var lastWarnAt time.Time
 	for {
@@ -89,99 +281,20 @@ func (a *Authenticator) updater() {
 				log.Warn(common.NewError("mysql unreachable, serving from cache").Base(err))
 				lastWarnAt = time.Now()
 			}
-			select {
-			case <-time.After(a.updateDuration):
-				continue
-			case <-a.ctx.Done():
-				log.Debug("MySQL daemon exiting...")
+			if !a.waitForNextUpdate() {
 				return
 			}
+			continue
 		}
 		lastWarnAt = time.Time{}
 
-		for _, user := range a.ListUsers() {
-			// swap upload and download for users
-			hash := user.GetHash()
-			sent, recv := user.ResetTraffic()
-
-			ctx, cancel := a.queryCtx()
-			s, err := a.db.ExecContext(ctx, "UPDATE `users` SET `upload`=`upload`+?, `download`=`download`+? WHERE `password`=?;", recv, sent, hash)
-			cancel()
-			if err != nil {
-				a.recordErr()
-				log.Error(common.NewError("failed to update data to user table").Base(err))
-				continue
-			}
-			if r, err := s.RowsAffected(); err != nil {
-				if r == 0 {
-					a.DelUser(hash)
-				}
-			}
-		}
-		log.Info("buffered data has been written into the database")
-
-		// update memory
-		ctx, cancel := a.queryCtx()
-		rows, err := a.db.QueryContext(ctx, "SELECT password,quota,download,upload,speed_limit_up,speed_limit_down,ip_limit FROM users")
-		if err != nil || (rows != nil && rows.Err() != nil) {
-			a.recordErr()
-			log.Error(common.NewError("failed to pull data from the database").Base(err))
-			if rows != nil {
-				_ = rows.Close()
-			}
-			cancel()
-			select {
-			case <-time.After(a.updateDuration):
-				continue
-			case <-a.ctx.Done():
-				log.Debug("MySQL daemon exiting...")
+		if err := a.syncTrafficAndUsers(); err != nil {
+			if !a.waitForNextUpdate() {
 				return
 			}
+			continue
 		}
-		userMap := make(map[string]bool)
-		for rows.Next() {
-			var hash string
-			var quota, download, upload int64
-			var speedLimitUp, speedLimitDown, ipLimit int
-			err := rows.Scan(&hash, &quota, &download, &upload, &speedLimitUp, &speedLimitDown, &ipLimit)
-			if err != nil {
-				a.recordErr()
-				log.Error(common.NewError("failed to obtain data from the query result").Base(err))
-				break
-			}
-			userMap[hash] = true
-			if download+upload < quota || quota < 0 {
-				a.AddUser(hash)
-				a.Authenticator.SetUserSpeedLimit(hash, speedLimitUp, speedLimitDown)
-				a.Authenticator.SetUserIPLimit(hash, ipLimit)
-				// P0-3b: propagate quota into the memory layer so that
-				// in-process callers (e.g. the active-cutoff hook in
-				// P0-3d, and `User.GetQuota` consumers) see the real
-				// per-user limit. Use the embedded `Authenticator`'s
-				// `SetUserQuota`, NOT the wrapper above, to avoid issuing
-				// a redundant `UPDATE users SET quota=?` against the DB
-				// for a value we just read from it.
-				a.Authenticator.SetUserQuota(hash, quota)
-			} else {
-				a.DelUser(hash)
-			}
-		}
-		// P1-3: every *sql.Rows must be Close()d. The original code never
-		// closed `rows`, leaking the underlying connection back to the pool
-		// only when GC eventually finalised the Rows. Close explicitly so
-		// the connection is returned immediately on every iteration.
-		_ = rows.Close()
-		cancel()
-		for _, user := range a.ListUsers() {
-			if _, ok := userMap[user.GetHash()]; !ok {
-				a.DelUser(user.GetHash())
-			}
-		}
-
-		select {
-		case <-time.After(a.updateDuration):
-		case <-a.ctx.Done():
-			log.Debug("MySQL daemon exiting...")
+		if !a.waitForNextUpdate() {
 			return
 		}
 	}
@@ -259,6 +372,10 @@ func connectDatabase(driverName, username, password, ip string, port int, dbName
 
 func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
+	trafficBatchSize, err := resolveTrafficBatchSize(cfg.MySQL.TrafficBatchSize)
+	if err != nil {
+		return nil, err
+	}
 	db, err := connectDatabase(
 		"mysql",
 		cfg.MySQL.Username,
@@ -277,11 +394,13 @@ func NewAuthenticator(ctx context.Context) (statistic.Authenticator, error) {
 		return nil, err
 	}
 	a := &Authenticator{
-		db:             db,
-		ctx:            ctx,
-		updateDuration: time.Duration(cfg.MySQL.CheckRate) * time.Second,
-		queryTimeout:   resolveQueryTimeout(cfg.MySQL.QueryTimeout),
-		Authenticator:  memoryAuth.(*memory.Authenticator),
+		db:               db,
+		ctx:              ctx,
+		updateDuration:   time.Duration(cfg.MySQL.CheckRate) * time.Second,
+		queryTimeout:     resolveQueryTimeout(cfg.MySQL.QueryTimeout),
+		trafficBatchSize: trafficBatchSize,
+		pendingTraffic:   make(map[string]trafficDelta),
+		Authenticator:    memoryAuth.(*memory.Authenticator),
 	}
 	// P1-5: hand the metrics package a reference to this authenticator's
 	// error counter so Snapshot() can publish mysql_errors_total without an
@@ -302,6 +421,16 @@ func resolveQueryTimeout(raw int) time.Duration {
 		return DefaultQueryTimeout
 	}
 	return time.Duration(raw) * time.Second
+}
+
+func resolveTrafficBatchSize(raw int) (int, error) {
+	if raw <= 0 {
+		return DefaultTrafficBatchSize, nil
+	}
+	if raw > MaxTrafficBatchSize {
+		return 0, common.NewErrorf("mysql traffic_batch_size must be between 1 and %d", MaxTrafficBatchSize)
+	}
+	return raw, nil
 }
 
 func init() {

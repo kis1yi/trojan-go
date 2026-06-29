@@ -3,6 +3,9 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -25,13 +28,268 @@ func newMySQLTestAuth(t *testing.T, db *sql.DB) (*Authenticator, context.CancelF
 		t.Fatalf("failed to create memory authenticator: %v", err)
 	}
 	a := &Authenticator{
-		db:             db,
-		ctx:            ctx,
-		updateDuration: time.Second,
-		queryTimeout:   DefaultQueryTimeout,
-		Authenticator:  memAuth.(*memory.Authenticator),
+		db:               db,
+		ctx:              ctx,
+		updateDuration:   time.Second,
+		queryTimeout:     DefaultQueryTimeout,
+		trafficBatchSize: DefaultTrafficBatchSize,
+		pendingTraffic:   make(map[string]trafficDelta),
+		Authenticator:    memAuth.(*memory.Authenticator),
 	}
 	return a, cancel
+}
+
+func TestResolveTrafficBatchSize(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     int
+		want    int
+		wantErr bool
+	}{
+		{name: "zero uses default", raw: 0, want: DefaultTrafficBatchSize},
+		{name: "negative uses default", raw: -1, want: DefaultTrafficBatchSize},
+		{name: "single mode", raw: 1, want: 1},
+		{name: "default explicit", raw: 500, want: 500},
+		{name: "maximum", raw: MaxTrafficBatchSize, want: MaxTrafficBatchSize},
+		{name: "above maximum", raw: MaxTrafficBatchSize + 1, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveTrafficBatchSize(tt.raw)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("resolveTrafficBatchSize returned nil error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveTrafficBatchSize: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("resolveTrafficBatchSize(%d) = %d, want %d", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildTrafficUpdateSinglePreservesLegacySQL(t *testing.T) {
+	query, args := buildTrafficUpdate([]trafficDelta{{hash: "user1", sent: 100, recv: 200}})
+	wantQuery := "UPDATE `users` SET `upload`=`upload`+?, `download`=`download`+? WHERE `password`=?;"
+	wantArgs := []interface{}{uint64(200), uint64(100), "user1"}
+	if query != wantQuery {
+		t.Fatalf("query = %q, want %q", query, wantQuery)
+	}
+	if !reflect.DeepEqual(args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}
+
+func TestBuildTrafficUpdateBatchMapsDirectionsAndParameters(t *testing.T) {
+	query, args := buildTrafficUpdate([]trafficDelta{
+		{hash: "a", sent: 10, recv: 20},
+		{hash: "b", sent: 30, recv: 40},
+	})
+	wantQuery := "UPDATE `users` SET `upload`=`upload`+CASE `password` WHEN ? THEN ? WHEN ? THEN ? ELSE 0 END, `download`=`download`+CASE `password` WHEN ? THEN ? WHEN ? THEN ? ELSE 0 END WHERE `password` IN (?,?);"
+	wantArgs := []interface{}{
+		"a", uint64(20), "b", uint64(40),
+		"a", uint64(10), "b", uint64(30),
+		"a", "b",
+	}
+	if query != wantQuery {
+		t.Fatalf("query = %q, want %q", query, wantQuery)
+	}
+	if !reflect.DeepEqual(args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}
+
+func TestFlushPendingTrafficUsesConfiguredChunks(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		users     int
+		wantCalls int
+	}{
+		{name: "500 users", users: 500, wantCalls: 1},
+		{name: "501 users", users: 501, wantCalls: 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+			a, cancel := newMySQLTestAuth(t, db)
+			defer cancel()
+
+			for i := 0; i < tt.users; i++ {
+				hash := fmt.Sprintf("user-%04d", i)
+				a.pendingTraffic[hash] = trafficDelta{hash: hash, sent: uint64(i + 1), recv: uint64(i + 2)}
+			}
+			for i := 0; i < tt.wantCalls; i++ {
+				mock.ExpectExec("^UPDATE `users` SET").WillReturnResult(sqlmock.NewResult(0, 1))
+			}
+
+			if err := a.flushPendingTraffic(); err != nil {
+				t.Fatalf("flushPendingTraffic: %v", err)
+			}
+			if len(a.pendingTraffic) != 0 {
+				t.Fatalf("pending users = %d, want 0", len(a.pendingTraffic))
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unfulfilled mock expectations: %v", err)
+			}
+		})
+	}
+}
+
+func TestFlushPendingTrafficRetriesAndMergesNewTraffic(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+	a.trafficBatchSize = 1
+	if err := a.AddUser("user1"); err != nil {
+		t.Fatalf("AddUser: %v", err)
+	}
+	a.pendingTraffic["user1"] = trafficDelta{hash: "user1", sent: 100, recv: 200}
+
+	singleQuery := regexp.QuoteMeta("UPDATE `users` SET `upload`=`upload`+?, `download`=`download`+? WHERE `password`=?;")
+	mock.ExpectExec(singleQuery).
+		WithArgs(uint64(200), uint64(100), "user1").
+		WillReturnError(sql.ErrConnDone)
+	if err := a.flushPendingTraffic(); err == nil {
+		t.Fatal("flushPendingTraffic returned nil error")
+	}
+	if got := a.ErrorsTotal(); got != 1 {
+		t.Fatalf("ErrorsTotal = %d, want 1", got)
+	}
+	if len(a.pendingTraffic) != 1 {
+		t.Fatalf("pending users = %d, want 1", len(a.pendingTraffic))
+	}
+
+	_, user := a.AuthUser("user1")
+	user.AddSentTraffic(25)
+	user.AddRecvTraffic(50)
+	a.collectPendingTraffic()
+	mock.ExpectExec(singleQuery).
+		WithArgs(uint64(250), uint64(125), "user1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := a.flushPendingTraffic(); err != nil {
+		t.Fatalf("retry flushPendingTraffic: %v", err)
+	}
+	if len(a.pendingTraffic) != 0 {
+		t.Fatalf("pending users after retry = %d, want 0", len(a.pendingTraffic))
+	}
+	if a.failedFlushCycles != 0 {
+		t.Fatalf("failedFlushCycles = %d, want 0", a.failedFlushCycles)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
+}
+
+func TestFlushPendingTrafficKeepsOnlyFailedAndUnattemptedChunks(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+	a.trafficBatchSize = 2
+	for _, hash := range []string{"a", "b", "c"} {
+		a.pendingTraffic[hash] = trafficDelta{hash: hash, sent: 1, recv: 2}
+	}
+	mock.ExpectExec("^UPDATE `users` SET").WillReturnResult(sqlmock.NewResult(0, 2))
+	mock.ExpectExec("^UPDATE `users` SET").WillReturnError(sql.ErrConnDone)
+
+	if err := a.flushPendingTraffic(); err == nil {
+		t.Fatal("flushPendingTraffic returned nil error")
+	}
+	if len(a.pendingTraffic) != 1 {
+		t.Fatalf("pending users = %d, want 1", len(a.pendingTraffic))
+	}
+	if _, ok := a.pendingTraffic["c"]; !ok {
+		t.Fatal("failed chunk user c was not retained")
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `users` SET `upload`=`upload`+?, `download`=`download`+? WHERE `password`=?;")).
+		WithArgs(uint64(2), uint64(1), "c").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := a.flushPendingTraffic(); err != nil {
+		t.Fatalf("retry flushPendingTraffic: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
+}
+
+func TestSyncTrafficAndUsersSkipsRefreshAfterFlushFailure(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+	a.trafficBatchSize = 1
+	if err := a.AddUser("user1"); err != nil {
+		t.Fatalf("AddUser: %v", err)
+	}
+	_, user := a.AuthUser("user1")
+	user.AddSentTraffic(10)
+	mock.ExpectExec("^UPDATE `users` SET").WillReturnError(sql.ErrConnDone)
+
+	if err := a.syncTrafficAndUsers(); err == nil {
+		t.Fatal("syncTrafficAndUsers returned nil error")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
+}
+
+func TestTrafficArrivingDuringFlushRemainsForNextCycle(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	a, cancel := newMySQLTestAuth(t, db)
+	defer cancel()
+	a.trafficBatchSize = 1
+	if err := a.AddUser("user1"); err != nil {
+		t.Fatalf("AddUser: %v", err)
+	}
+	_, user := a.AuthUser("user1")
+	user.AddSentTraffic(100)
+	user.AddRecvTraffic(200)
+	a.collectPendingTraffic()
+
+	mock.ExpectExec("^UPDATE `users` SET").
+		WithArgs(uint64(200), uint64(100), "user1").
+		WillDelayFor(50 * time.Millisecond).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	done := make(chan struct{})
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		user.AddSentTraffic(25)
+		user.AddRecvTraffic(50)
+		close(done)
+	}()
+	if err := a.flushPendingTraffic(); err != nil {
+		t.Fatalf("flushPendingTraffic: %v", err)
+	}
+	<-done
+	sent, recv := user.GetTraffic()
+	if sent != 25 || recv != 50 {
+		t.Fatalf("traffic after concurrent flush = (%d, %d), want (25, 50)", sent, recv)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled mock expectations: %v", err)
+	}
 }
 
 // TestMySQLUpdaterAppliesLimits verifies that a single updater cycle reads the

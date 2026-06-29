@@ -30,7 +30,7 @@ Trojan-Go is compatible with most features of the original Trojan, including but
 - UDP proxy
 - Transparent proxy (NAT mode, iptables setup reference [here](https://github.com/shadowsocks/shadowsocks-libev/tree/v3.3.1#transparent-proxy))
 - Mechanisms against GFW passive detection / active probing, including SNI/ALPN-routed fallback rules with optional PROXY protocol v1/v2 emission on the dial to the fallback backend
-- MySQL data persistence with bounded query timeouts and a Ping-based health check that keeps the in-memory user cache serving traffic during transient DB outages
+- MySQL data persistence with bounded query timeouts, configurable batched traffic updates, in-memory retry of failed batches, and a Ping-based health check that keeps the in-memory user cache serving traffic during transient DB outages
 - MySQL user permission authentication
 - Per-user speed limits, IP limits, concurrent-connection caps and byte quotas persisted in MySQL/SQLite, polled and applied at runtime
 - User traffic statistics and **active** quota cutoff: an in-flight tunnel is closed within ~1 second of crossing the user's byte quota, not at the next polling tick

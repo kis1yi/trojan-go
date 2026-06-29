@@ -43,3 +43,48 @@ jobs:
 
       - name: Test
         run: make test
+
+  mysql-integration:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: trojan_test
+          MARIADB_USER: trojan
+          MARIADB_PASSWORD: trojan
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: trojan_test
+          MYSQL_USER: trojan
+          MYSQL_PASSWORD: trojan
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ^1.26
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Test concurrent MariaDB and MySQL batch updates
+        env:
+          TROJAN_GO_MYSQL_INTEGRATION_DSNS: "trojan:trojan@tcp(127.0.0.1:3306)/trojan_test,trojan:trojan@tcp(127.0.0.1:3307)/trojan_test"
+        run: go test -tags "full mysql_integration" ./statistic/mysql -run TestConcurrentBatchUpdatesAreAdditive
