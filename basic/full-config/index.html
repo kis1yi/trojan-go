@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="4264"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="4445"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -189,6 +189,7 @@ Trojan-Go supports the more human-friendly YAML syntax.">
     <span style="color:#f92672">&#34;password&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;check_rate&#34;</span>: <span style="color:#ae81ff">60</span>,
     <span style="color:#f92672">&#34;query_timeout&#34;</span>: <span style="color:#ae81ff">5</span>,
+    <span style="color:#f92672">&#34;traffic_batch_size&#34;</span>: <span style="color:#ae81ff">500</span>,
     <span style="color:#f92672">&#34;tls_mode&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
     <span style="color:#f92672">&#34;tls_ca&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>
   },
@@ -435,6 +436,8 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 <p><code>enabled</code> indicates whether to use a MySQL database for user authentication.</p>
 <p><code>check_rate</code> is the interval in seconds at which trojan-go fetches user data from MySQL and updates the cache.</p>
 <p><code>query_timeout</code> is the per-call deadline (in seconds) applied to every MySQL <code>Query</code>/<code>Exec</code>. <code>0</code> or a negative value selects the default of <code>5</code> seconds. Each updater iteration starts with a <code>PingContext</code> health check; on failure the in-memory user cache is preserved (so existing sessions keep working during a transient outage) and a single rate-limited <code>Warn</code> is emitted. Cumulative driver/query failures are exposed as the <code>mysql_errors_total</code> counter for the metrics surface.</p>
+<p><code>traffic_batch_size</code> controls how many users' non-zero traffic deltas are written by one MySQL <code>UPDATE</code>. <code>0</code> or a negative value selects the default of <code>500</code>; valid explicit values are <code>1</code> through <code>1000</code>. A value of <code>1</code> uses the legacy single-user SQL statement as an operational fallback, while retaining the same in-memory retry behavior as batch mode. Values above <code>1000</code> are rejected at startup.</p>
+<p>Traffic is removed from the in-process counters only after it has first been moved into a pending buffer. A failed <code>UPDATE</code> leaves the affected and unattempted batches pending and skips the user refresh for that cycle; they are merged with newly arrived traffic and retried after the next successful database health check. Successfully written batches are not retried. This protects counters from ordinary transient database errors, but the pending buffer is not durable across process termination. An ambiguous connection failure after the database committed an <code>UPDATE</code> but before the client received its response can still cause the batch to be counted again on retry; exactly-once persistence requires an external durable batch journal and is outside this mode.</p>
 <p><code>tls_mode</code> controls TLS encryption for the MySQL connection. Supported values:</p>
 <ul>
 <li><code>&quot;&quot;</code> (empty, default): No TLS. The connection is plaintext.</li>
