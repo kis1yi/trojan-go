@@ -8,12 +8,88 @@ import (
 
 	"github.com/kis1yi/trojan-go/common"
 	"github.com/kis1yi/trojan-go/config"
+	"github.com/kis1yi/trojan-go/metrics"
 	"github.com/kis1yi/trojan-go/statistic/memory"
 	"github.com/kis1yi/trojan-go/test/util"
 	"github.com/kis1yi/trojan-go/tunnel"
 	"github.com/kis1yi/trojan-go/tunnel/freedom"
 	"github.com/kis1yi/trojan-go/tunnel/transport"
 )
+
+// TestCutoffWatcherExitsOnNormalClose is the regression for the watcher leak:
+// every authenticated tunnel used to leave a goroutine blocked on the user's
+// cutoff channel after the connection had closed normally. The goroutine kept
+// the InboundConn and its wrapped TLS connection reachable until the user was
+// removed or the whole server stopped.
+func TestCutoffWatcherExitsOnNormalClose(t *testing.T) {
+	auth := newTestAuthenticator(t, "password")
+	defer auth.Close()
+
+	hash := common.SHA224String("password")
+	if err := auth.SetUserIPLimit(hash, 1); err != nil {
+		t.Fatalf("SetUserIPLimit: %v", err)
+	}
+	valid, user := auth.AuthUser(hash)
+	if !valid {
+		t.Fatal("configured user did not authenticate")
+	}
+	const ip = "127.0.0.1"
+	if !user.AddIP(ip) {
+		t.Fatal("failed to reserve first test connection's IP slot")
+	}
+	// A second connection from the same IP must remain accounted after
+	// inbound.Close is called repeatedly for the first connection.
+	if !user.AddIP(ip) {
+		t.Fatal("failed to reserve second test connection's IP slot")
+	}
+
+	peer, conn := net.Pipe()
+	defer peer.Close()
+
+	inbound := &InboundConn{
+		Conn:   addrConn{Conn: conn},
+		user:   user,
+		hash:   hash,
+		ip:     ip,
+		closed: make(chan struct{}),
+		metadata: &tunnel.Metadata{
+			Address: tunnel.NewAddressFromHostPort("tcp", "example.com", 80),
+		},
+	}
+	activeBefore := metrics.Snapshot()[metrics.KeyActiveConnections]
+	metrics.IncActiveConnections()
+	defer inbound.Close()
+
+	server := &Server{ctx: context.Background()}
+	watcherExited := make(chan struct{})
+	go func() {
+		server.waitForUserCutoff(inbound, user.Done())
+		close(watcherExited)
+	}()
+
+	if err := inbound.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	// A second close must neither panic nor repeat IP/metrics accounting.
+	if err := inbound.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+
+	select {
+	case <-watcherExited:
+	case <-time.After(time.Second):
+		t.Fatal("cutoff watcher did not exit after normal connection close")
+	}
+	if got := user.GetIP(); got != 1 {
+		t.Fatalf("repeated Close disturbed the second connection's IP slot: got %d active IPs, want 1", got)
+	}
+	if !user.DelIP(ip) {
+		t.Fatal("failed to release second test connection's IP slot")
+	}
+	if got := metrics.Snapshot()[metrics.KeyActiveConnections]; got != activeBefore {
+		t.Fatalf("active connection gauge after repeated Close = %d, want %d", got, activeBefore)
+	}
+}
 
 // TestQuotaCutoffClosesAcceptedTunnel is the P0-3d integration regression
 // test. It builds a real trojan client/server pair over the in-memory

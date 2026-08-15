@@ -46,7 +46,9 @@ type InboundConn struct {
 	metadata    *tunnel.Metadata
 	ip          string
 	authTimeout time.Duration
+	closed      chan struct{}
 	closeOnce   sync.Once
+	closeErr    error
 }
 
 func (c *InboundConn) Metadata() *tunnel.Metadata {
@@ -68,14 +70,22 @@ func (c *InboundConn) Read(p []byte) (int, error) {
 }
 
 func (c *InboundConn) Close() error {
-	log.Debug("user", log.RedactHash(c.hash), "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address, "closed",
-		"sent:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.sent)), "recv:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.recv)))
-	c.user.DelIP(c.ip)
-	// P1-5: release the active-tunnel gauge entry created in Auth().
-	// closeOnce guarantees Inc/Dec balance even when Close is invoked by
-	// both the relay loop and an external Closer (e.g. quota cutoff hook).
-	c.closeOnce.Do(metrics.DecActiveConnections)
-	return c.Conn.Close()
+	c.closeOnce.Do(func() {
+		// Wake the quota-cutoff watcher before closing the transport. Without
+		// this signal, one watcher goroutine (and the entire wrapped TLS
+		// connection it references) survives every normally closed tunnel until
+		// the user is removed or the server shuts down.
+		close(c.closed)
+		log.Debug("user", log.RedactHash(c.hash), "from", c.Conn.RemoteAddr(), "tunneling to", c.metadata.Address, "closed",
+			"sent:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.sent)), "recv:", common.HumanFriendlyTraffic(atomic.LoadUint64(&c.recv)))
+		c.user.DelIP(c.ip)
+		// P1-5: release the active-tunnel gauge entry created in Auth(). The
+		// same closeOnce also makes IP accounting and the underlying Close
+		// idempotent when normal relay teardown races a quota cutoff.
+		metrics.DecActiveConnections()
+		c.closeErr = c.Conn.Close()
+	})
+	return c.closeErr
 }
 
 // TrojanAuthTimeout bounds how long the server is willing to wait for a
@@ -199,6 +209,18 @@ type Server struct {
 	authTimeout time.Duration
 }
 
+func (s *Server) waitForUserCutoff(c *InboundConn, cutoff <-chan struct{}) {
+	select {
+	case <-cutoff:
+		log.Info("user", log.RedactHash(c.hash), "cut off (quota or removal); closing tunnel from", c.Conn.RemoteAddr())
+		_ = c.Close()
+	case <-c.closed:
+		// Normal relay teardown: release the watcher and every reference it
+		// holds as soon as the connection closes.
+	case <-s.ctx.Done():
+	}
+}
+
 func (s *Server) Close() error {
 	s.cancel()
 	return s.underlay.Close()
@@ -225,6 +247,7 @@ func (s *Server) acceptLoop() {
 				Conn:        rewindConn,
 				auth:        s.auth,
 				authTimeout: s.authTimeout,
+				closed:      make(chan struct{}),
 			}
 
 			if err := inboundConn.Auth(); err != nil {
@@ -274,14 +297,7 @@ func (s *Server) acceptLoop() {
 				select {
 				case <-done:
 				default:
-					go func(c *InboundConn, cutoff <-chan struct{}) {
-						select {
-						case <-cutoff:
-							log.Info("user", log.RedactHash(c.hash), "cut off (quota or removal); closing tunnel from", c.Conn.RemoteAddr())
-							_ = c.Conn.Close()
-						case <-s.ctx.Done():
-						}
-					}(inboundConn, done)
+					go s.waitForUserCutoff(inboundConn, done)
 				}
 			}
 
@@ -306,6 +322,7 @@ func (s *Server) acceptLoop() {
 				log.Debug("mux connection")
 			default:
 				log.Error(common.NewError(fmt.Sprintf("unknown trojan command %d", inboundConn.metadata.Command)))
+				_ = inboundConn.Close()
 			}
 		}(conn)
 	}
