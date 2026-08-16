@@ -112,8 +112,8 @@ func (s *Server) associate(conn net.Conn, addr *tunnel.Address) error {
 }
 
 func (s *Server) packetDispatchLoop() {
+	buf := make([]byte, MaxPacketSize)
 	for {
-		buf := make([]byte, MaxPacketSize)
 		n, src, err := s.listenPacketConn.ReadFrom(buf)
 		if err != nil {
 			select {
@@ -121,25 +121,30 @@ func (s *Server) packetDispatchLoop() {
 				log.Debug("exiting")
 				return
 			default:
-				continue
+				log.Error(common.NewError("socks failed to read UDP packet").Base(err))
+				return
 			}
 		}
 		log.Debug("socks recv udp packet from", src)
+		key := src.String()
 		s.mappingLock.RLock()
-		conn, found := s.mapping[src.String()]
+		conn, found := s.mapping[key]
 		s.mappingLock.RUnlock()
 		if !found {
-			ctx, cancel := context.WithCancel(s.ctx)
-			conn = &PacketConn{
-				input:      make(chan *packetInfo, 128),
-				output:     make(chan *packetInfo, 128),
-				ctx:        ctx,
-				cancel:     cancel,
-				PacketConn: s.listenPacketConn,
-				src:        src,
-			}
-			go func(conn *PacketConn) {
-				defer conn.Close()
+			conn = newPacketConn(s.ctx, s.listenPacketConn.LocalAddr(), src)
+			s.mappingLock.Lock()
+			s.mapping[key] = conn
+			s.mappingLock.Unlock()
+
+			go func(conn *PacketConn, key string) {
+				defer func() {
+					conn.Close()
+					s.mappingLock.Lock()
+					if current, ok := s.mapping[key]; ok && current == conn {
+						delete(s.mapping, key)
+					}
+					s.mappingLock.Unlock()
+				}()
 				for {
 					select {
 					case info := <-conn.output:
@@ -149,26 +154,19 @@ func (s *Server) packetDispatchLoop() {
 						buf.Write(info.payload)
 						_, err := s.listenPacketConn.WriteTo(buf.Bytes(), conn.src)
 						if err != nil {
-							log.Error("socks failed to respond packet to", src)
+							log.Error("socks failed to respond packet to", conn.src)
 							return
 						}
-						log.Debug("socks respond udp packet to", src, "metadata", info.metadata)
+						log.Debug("socks respond udp packet to", conn.src, "metadata", info.metadata)
 					case <-time.After(time.Second * 5):
 						log.Info("socks udp session timeout, closed")
-						s.mappingLock.Lock()
-						delete(s.mapping, src.String())
-						s.mappingLock.Unlock()
 						return
 					case <-conn.ctx.Done():
 						log.Info("socks udp session closed")
 						return
 					}
 				}
-			}(conn)
-
-			s.mappingLock.Lock()
-			s.mapping[src.String()] = conn
-			s.mappingLock.Unlock()
+			}(conn, key)
 
 			s.packetChan <- conn
 			log.Info("socks new udp session from", src)
