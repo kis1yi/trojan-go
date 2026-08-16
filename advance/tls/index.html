@@ -34,7 +34,7 @@ The behaviour described here is exercised by the tunnel/tls regression tests; in
 <meta itemprop="description" content="This page documents the TLS-layer knobs that affect how a trojan-go client talks to a remote endpoint: the spoofed Client Hello fingerprint, the ALPN list, and the ECH (Encrypted Client Hello) modes. The corresponding configuration fields live under the ssl block — see Complete Configuration File for the full schema.
 The behaviour described here is exercised by the tunnel/tls regression tests; in particular, the default fingerprint is locked by TestDefaultFingerprintIsChrome, so it will not change silently between releases.">
 
-<meta itemprop="wordCount" content="608"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="591"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -153,13 +153,12 @@ with a <code>WARN</code> at startup; this is an operator mistake, not a feature.
 <li>CDNs do not, in general, support ECH. With most CDN deployments, full ECH
 will fail the handshake or land you on the wrong virtual host. Stick to
 GREASE ECH (or no ECH) when fronting through a CDN.</li>
-<li>The <code>alpn</code> list is purely cosmetic at the TLS layer — trojan-go does not
-multiplex on the negotiated protocol. However, <strong>CDNs do honour ALPN</strong>:
-if the configured ALPN does not match what the CDN expects (typically
-<code>[&quot;h2&quot;, &quot;http/1.1&quot;]</code>), the CDN may upgrade or downgrade the inner
-protocol and break the trojan tunnel. When using a fingerprint, the
-fingerprint&rsquo;s canonical ALPN already matches the impersonated browser;
-leaving <code>alpn</code> unset is the safe choice.</li>
+<li>The <code>alpn</code> list is part of the selected TLS fingerprint. For ordinary
+transports, the fingerprint&rsquo;s canonical ALPN is used. When WebSocket is
+enabled, trojan-go overrides only that fingerprint extension and advertises
+<code>http/1.1</code>: the WebSocket implementation performs an HTTP/1.1 Upgrade and
+cannot carry the handshake over a CDN-negotiated HTTP/2 connection. The
+remaining fingerprint fields are preserved.</li>
 <li>ECH GREASE only changes the Client Hello shape; it does not improve
 confidentiality of the SNI through a plain TLS terminator. If your
 threat model requires SNI confidentiality, use full ECH against an

@@ -58,7 +58,7 @@ For the client client, the reverse proxy tunnel forward, and the transparent pro
 All other unspecified options will be filled with the values given below.
 Trojan-Go supports the more human-friendly YAML syntax.">
 
-<meta itemprop="wordCount" content="4445"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
+<meta itemprop="wordCount" content="4470"><meta itemprop="image" content="https://kis1yi.github.io/trojan-go/images/og-image.png"/>
 <meta itemprop="keywords" content="" /></head>
 <body><div class="container"><header>
 <h1>Trojan-Go Docs</h1>
@@ -282,14 +282,14 @@ Trojan-Go supports the more human-friendly YAML syntax.">
 </li>
 </ul>
 <p>The default is enforced by the <code>TestDefaultFingerprintIsChrome</code> regression test in <code>tunnel/tls</code>; the value will not change silently across releases. See <a href="../../advance/tls">Advanced TLS settings</a> for ECH/ALPN interactions.</p>
-<p>Once the fingerprint value is set, the client&rsquo;s <code>cipher</code>, <code>curves</code>, <code>alpn</code>, <code>session_ticket</code> and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint.</p>
+<p>Once the fingerprint value is set, the client&rsquo;s <code>cipher</code>, <code>curves</code>, <code>alpn</code>, <code>session_ticket</code> and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint. WebSocket transport is the exception: it preserves the selected fingerprint but restricts its ALPN extension to <code>http/1.1</code>, which is required by the HTTP/1.1 WebSocket Upgrade implementation.</p>
 <p><code>ech</code> whether to enable Encrypted Client Hello (ECH). When enabled, the client will hide the real SNI during the TLS handshake. Two modes are supported:</p>
 <ul>
 <li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is empty, <strong>GREASE ECH</strong> mode is used: trojan-go adds a fake ECH extension to the Client Hello to mimic the behaviour of browsers like Chrome. The real SNI is <strong>not</strong> encrypted in this mode — it still travels in plaintext in the outer Client Hello. The point is fingerprint authenticity, not confidentiality.</li>
 <li>When <code>ech</code> is set to <code>true</code> and <code>ech_config</code> is non-empty, <strong>full ECH</strong> mode is used, and the real SNI will be transmitted in encrypted form to the ECH-enabled origin. The outer SNI is taken from the ECHConfigList, so a correct, up-to-date <code>ech_config</code> is required.</li>
 </ul>
 <p><code>ech_config</code> The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If <code>ech</code> is <code>false</code>, this field is ignored (a <code>WARN</code> is logged at startup).</p>
-<p><code>alpn</code> specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. This is only used for fingerprint spoofing and has no practical effect. <strong>If using a CDN, an incorrect alpn field may cause the CDN to negotiate an incorrect application layer protocol.</strong></p>
+<p><code>alpn</code> specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. The selected client fingerprint normally supplies this list. When WebSocket transport is enabled, trojan-go automatically advertises only <code>http/1.1</code> so that a CDN cannot select HTTP/2 for an HTTP/1.1 WebSocket Upgrade.</p>
 <p><code>prefer_server_cipher</code> whether the client prefers the cipher suite provided by the server during negotiation.</p>
 <p><code>cipher</code> The TLS cipher suite. The <code>cipher13</code> field is merged with this field. You should only fill this in if you clearly know what you are doing. <strong>In normal circumstances, you should leave this empty or not fill it in.</strong> trojan-go will automatically select the most appropriate encryption algorithm based on the current hardware platform and remote conditions to improve performance and security. If you need to fill it in, cipher suite names are separated by semicolons (&quot;:&quot;) in priority order. Go&rsquo;s TLS library has deprecated some insecure TLS 1.2 cipher suites and fully supports TLS 1.3. By default, trojan-go will prefer the more secure TLS 1.3.</p>
 <p><code>curves</code> specifies the elliptic curves that TLS prefers to use in ECDHE. Only fill this in if you clearly know what you are doing. Curve names are separated by semicolons (&quot;:&quot;) in priority order.</p>
