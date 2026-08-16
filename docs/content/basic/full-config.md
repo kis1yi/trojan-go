@@ -210,7 +210,7 @@ The server must fill in `cert` and `key`, corresponding to the server's certific
 
 The default is enforced by the `TestDefaultFingerprintIsChrome` regression test in `tunnel/tls`; the value will not change silently across releases. See [Advanced TLS settings](../../advance/tls) for ECH/ALPN interactions.
 
-Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `session_ticket` and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint.
+Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `session_ticket` and other fields that may affect the fingerprint will be overwritten with the specific settings of that fingerprint. WebSocket transport is the exception: it preserves the selected fingerprint but restricts its ALPN extension to `http/1.1`, which is required by the HTTP/1.1 WebSocket Upgrade implementation.
 
 `ech` whether to enable Encrypted Client Hello (ECH). When enabled, the client will hide the real SNI during the TLS handshake. Two modes are supported:
 
@@ -219,7 +219,7 @@ Once the fingerprint value is set, the client's `cipher`, `curves`, `alpn`, `ses
 
 `ech_config` The ECHConfigList used in full ECH mode, base64-encoded, typically obtained by querying the HTTPS record of the target domain via a trusted DNS resolver. If `ech` is `false`, this field is ignored (a `WARN` is logged at startup).
 
-`alpn` specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. This is only used for fingerprint spoofing and has no practical effect. **If using a CDN, an incorrect alpn field may cause the CDN to negotiate an incorrect application layer protocol.**
+`alpn` specifies the application-layer protocol negotiation for TLS. It is transmitted in the TLS Client/Server Hello and negotiates the application-layer protocol to use. The selected client fingerprint normally supplies this list. When WebSocket transport is enabled, trojan-go automatically advertises only `http/1.1` so that a CDN cannot select HTTP/2 for an HTTP/1.1 WebSocket Upgrade.
 
 `prefer_server_cipher` whether the client prefers the cipher suite provided by the server during negotiation.
 

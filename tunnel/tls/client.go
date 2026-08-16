@@ -33,6 +33,29 @@ type Client struct {
 	underlay      tunnel.Client
 	echEnabled    bool
 	echConfigRaw  []byte
+	websocket     bool
+}
+
+const websocketALPN = "http/1.1"
+
+func forceWebsocketALPN(conn *tls.UConn) error {
+	if err := conn.BuildHandshakeState(); err != nil {
+		return common.NewError("failed to build tls client hello for websocket").Base(err)
+	}
+
+	for _, extension := range conn.Extensions {
+		alpn, ok := extension.(*tls.ALPNExtension)
+		if !ok {
+			continue
+		}
+		alpn.AlpnProtocols = []string{websocketALPN}
+		if err := conn.BuildHandshakeState(); err != nil {
+			return common.NewError("failed to apply websocket alpn").Base(err)
+		}
+		return nil
+	}
+
+	return common.NewError("tls fingerprint has no alpn extension required by websocket")
 }
 
 func (c *Client) Close() error {
@@ -88,6 +111,13 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 		}
 	} else {
 		tlsConn = tls.UClient(conn, tlsConfig, c.helloID)
+	}
+
+	if c.websocket {
+		if err := forceWebsocketALPN(tlsConn); err != nil {
+			conn.Close()
+			return nil, err
+		}
 	}
 
 	if err := tlsConn.Handshake(); err != nil {
@@ -179,6 +209,10 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 		helloID:       helloID,
 		echEnabled:    echEnabled,
 		echConfigRaw:  echConfigRaw,
+		websocket:     cfg.Websocket.Enabled,
+	}
+	if client.websocket {
+		log.Info("websocket transport enabled, forcing tls alpn to http/1.1")
 	}
 
 	if cfg.TLS.CertPath != "" {

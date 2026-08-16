@@ -71,13 +71,12 @@ with a `WARN` at startup; this is an operator mistake, not a feature.
 * CDNs do not, in general, support ECH. With most CDN deployments, full ECH
   will fail the handshake or land you on the wrong virtual host. Stick to
   GREASE ECH (or no ECH) when fronting through a CDN.
-* The `alpn` list is purely cosmetic at the TLS layer — trojan-go does not
-  multiplex on the negotiated protocol. However, **CDNs do honour ALPN**:
-  if the configured ALPN does not match what the CDN expects (typically
-  `["h2", "http/1.1"]`), the CDN may upgrade or downgrade the inner
-  protocol and break the trojan tunnel. When using a fingerprint, the
-  fingerprint's canonical ALPN already matches the impersonated browser;
-  leaving `alpn` unset is the safe choice.
+* The `alpn` list is part of the selected TLS fingerprint. For ordinary
+  transports, the fingerprint's canonical ALPN is used. When WebSocket is
+  enabled, trojan-go overrides only that fingerprint extension and advertises
+  `http/1.1`: the WebSocket implementation performs an HTTP/1.1 Upgrade and
+  cannot carry the handshake over a CDN-negotiated HTTP/2 connection. The
+  remaining fingerprint fields are preserved.
 * ECH GREASE only changes the Client Hello shape; it does not improve
   confidentiality of the SNI through a plain TLS terminator. If your
   threat model requires SNI confidentiality, use full ECH against an
