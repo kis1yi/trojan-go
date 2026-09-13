@@ -197,12 +197,13 @@ func (c *Client) DialPacket(overlay tunnel.Tunnel) (tunnel.PacketConn, error) {
 	}
 	ctx, cancel := context.WithCancel(c.ctx)
 	conn := &PacketConn{
-		Client:     c,
-		PacketConn: directConn,
-		proxy:      proxy,
-		cancel:     cancel,
-		ctx:        ctx,
-		packetChan: make(chan *packetInfo, 16),
+		Client:       c,
+		PacketConn:   directConn,
+		proxy:        proxy,
+		cancel:       cancel,
+		ctx:          ctx,
+		packetChan:   make(chan *packetInfo, 16),
+		readDeadline: makePacketDeadline(),
 	}
 	go conn.packetLoop()
 	return conn, nil

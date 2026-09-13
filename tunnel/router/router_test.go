@@ -39,7 +39,7 @@ func (m MockPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 func (m MockPacketConn) Close() error {
-	panic("implement me")
+	return nil
 }
 
 func (m MockPacketConn) LocalAddr() net.Addr {
@@ -145,6 +145,7 @@ router:
 
 	packet, err := client.DialPacket(nil)
 	common.Must(err)
+	defer packet.Close()
 	buf := [10]byte{}
 	_, err = packet.WriteWithMetadata(buf[:], &tunnel.Metadata{
 		Address: &tunnel.Address{
