@@ -26,6 +26,7 @@ linters:
             - github.com/go-sql-driver/mysql
             - github.com/pires/go-proxyproto
             - github.com/refraction-networking/utls
+            - github.com/shadowsocks/go-shadowsocks2/core
             - github.com/xtaci/smux
             - golang.org/x/net/websocket
             - golang.org/x/time/rate
