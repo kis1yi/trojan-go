@@ -27,6 +27,7 @@ linters:
             - github.com/pires/go-proxyproto
             - github.com/refraction-networking/utls
             - github.com/xtaci/smux
+            - golang.org/x/net/websocket
             - golang.org/x/time/rate
             - google.golang.org/grpc
             - google.golang.org/protobuf
